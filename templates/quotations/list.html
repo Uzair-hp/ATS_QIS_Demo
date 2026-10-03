@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}Quotations — ATS QIS{% endblock %}
+{% block page_title %}Quotations{% endblock %}
+{% block breadcrumb %}<div class="breadcrumb-bar"><a href="{{ url_for('dashboard.index') }}">Dashboard</a><span class="separator">/</span><span class="current">Quotations</span></div>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h2>Quotations</h2><div class="subtitle">{% if status_filter == 'Archived' %}Archived quotations{% else %}All project proposals and quotations{% endif %}</div></div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('quotations.export_quotations', q=search, status=status_filter) }}" class="btn btn-inf-outline"><i class="bi bi-download me-1"></i>Export</a>
+        <a href="{{ url_for('quotations.create_quotation') }}" class="btn btn-inf"><i class="bi bi-plus-lg me-1"></i>New Quotation</a>
+    </div>
+</div>
+
+<!-- Search + Filter -->
+<form method="GET" class="d-flex flex-wrap gap-2 mb-4">
+    <div class="search-bar" style="min-width:240px;flex:1;max-width:320px;">
+        <i class="bi bi-search"></i>
+        <input type="text" class="form-control form-control-sm" name="q" value="{{ search }}" placeholder="Search quotation # or client...">
+    </div>
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        <option value="Draft" {% if status_filter == 'Draft' %}selected{% endif %}>Draft</option>
+        <option value="Sent" {% if status_filter == 'Sent' %}selected{% endif %}>Sent</option>
+        <option value="Accepted" {% if status_filter == 'Accepted' %}selected{% endif %}>Accepted</option>
+        <option value="Declined" {% if status_filter == 'Declined' %}selected{% endif %}>Declined</option>
+        <option value="Invoiced" {% if status_filter == 'Invoiced' %}selected{% endif %}>Invoiced</option>
+        <option value="Expired" {% if status_filter == 'Expired' %}selected{% endif %}>Expired</option>
+        <option value="Archived" {% if status_filter == 'Archived' %}selected{% endif %}>Archived</option>
+    </select>
+</form>
+
+{% if quotations %}
+<div class="row g-4">
+    {% for q in quotations %}
+    <div class="col-12 col-md-6 col-lg-4">
+        <div class="doc-card animate-in">
+            <div class="doc-card-header">
+                <span class="doc-card-number">{{ q.quotation_number }}</span>
+                {% if q.is_archived %}
+                    <span class="badge-status badge-archived"><i class="bi bi-archive-fill me-1"></i>Archived</span>
+                {% elif q.status == 'Invoiced' %}
+                    <span class="badge-status badge-paid"><i class="bi bi-file-earmark-check-fill me-1"></i>Invoiced</span>
+                {% elif q.status == 'Accepted' %}
+                    <span class="badge-status badge-paid">Accepted</span>
+                {% elif q.is_expired or q.status == 'Expired' %}
+                    <span class="badge-status badge-overdue">Expired</span>
+                {% elif q.status == 'Declined' %}
+                    <span class="badge-status badge-overdue">Declined</span>
+                {% elif q.status == 'Sent' %}
+                    <span class="badge-status badge-partial">Sent</span>
+                {% else %}
+                    <span class="badge-status badge-pending">Draft</span>
+                {% endif %}
+            </div>
+            <div class="doc-card-body">
+                <div class="doc-card-client">
+                    <div class="doc-client-name">{{ q.client.name }}</div>
+                    {% if q.client.company_name %}
+                    <div class="doc-client-company">{{ q.client.company_name }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="doc-meta-grid">
+                    <div class="doc-meta-item">
+                        <span class="doc-meta-label">Created</span>
+                        <span class="doc-meta-value">{{ q.date_created.strftime('%d %b %Y') }}</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="doc-meta-label">Valid Until</span>
+                        <span class="doc-meta-value">{{ q.valid_until.strftime('%d %b %Y') if q.valid_until else '—' }}</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="doc-meta-label">Timeline</span>
+                        <span class="doc-meta-value">{{ q.estimated_timeline or '—' }}</span>
+                    </div>
+                </div>
+
+                <div class="doc-amount-section">
+                    <span class="doc-amount-label">Total Amount</span>
+                    <span class="doc-amount-value">₹{{ '{:,.2f}'.format(q.total_amount) }}</span>
+                </div>
+            </div>
+            <div class="doc-card-footer">
+                <a href="{{ url_for('quotations.view_quotation', id=q.id) }}" class="btn btn-inf-outline btn-sm" title="View"><i class="bi bi-eye"></i></a>
+                <a href="{{ url_for('quotations.download_pdf', id=q.id) }}" class="btn btn-inf-outline btn-sm" title="PDF"><i class="bi bi-file-pdf"></i></a>
+                {% if not q.is_archived and q.status not in ('Accepted', 'Invoiced') %}
+                <a href="{{ url_for('quotations.edit_quotation', id=q.id) }}" class="btn btn-inf-outline btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+                {% if q.is_archived %}
+                <form method="POST" action="{{ url_for('quotations.unarchive_quotation', id=q.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-inf-outline btn-sm" title="Restore"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-inf-archive btn-sm" title="Archive" data-url="{{ url_for('quotations.archive_quotation', id=q.id) }}" data-msg="Archive quotation {{ q.quotation_number }}?" onclick="confirmArchive(this)"><i class="bi bi-archive"></i></button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="inf-card">
+    <div class="card-body">
+        <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-file-earmark-text"></i></div>
+            <h6>No quotations found</h6>
+            <p>{% if search or status_filter %}Try adjusting your filters.{% else %}Create your first project quotation to get started.{% endif %}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Mobile FAB for New Quotation -->
+<a href="{{ url_for('quotations.create_quotation') }}" class="mobile-fab d-md-none" title="New Quotation">
+    <i class="bi bi-plus"></i>
+</a>
+{% endblock %}

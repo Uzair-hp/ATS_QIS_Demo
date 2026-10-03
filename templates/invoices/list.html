@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Invoices — ATS QIS{% endblock %}
+{% block page_title %}Invoices{% endblock %}
+{% block breadcrumb %}<div class="breadcrumb-bar"><a href="{{ url_for('dashboard.index') }}">Dashboard</a><span class="separator">/</span><span class="current">Invoices</span></div>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div><h2>Invoices</h2><div class="subtitle">{% if status_filter == 'Archived' %}Archived invoices{% else %}All generated invoices{% endif %}</div></div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('invoices.export_invoices', q=search, status=status_filter) }}" class="btn btn-inf-outline"><i class="bi bi-download me-1"></i>Export</a>
+        <a href="{{ url_for('invoices.create_invoice') }}" class="btn btn-inf"><i class="bi bi-plus-lg me-1"></i>New Invoice</a>
+    </div>
+</div>
+
+<!-- Search + Filter -->
+<form method="GET" class="d-flex flex-wrap gap-2 mb-4">
+    <div class="search-bar" style="min-width:240px;flex:1;max-width:320px;">
+        <i class="bi bi-search"></i>
+        <input type="text" class="form-control form-control-sm" name="q" value="{{ search }}" placeholder="Search invoice # or client...">
+    </div>
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="Partially Paid" {% if status_filter == 'Partially Paid' %}selected{% endif %}>Partially Paid</option>
+        <option value="Paid" {% if status_filter == 'Paid' %}selected{% endif %}>Paid</option>
+        <option value="Archived" {% if status_filter == 'Archived' %}selected{% endif %}>Archived</option>
+    </select>
+</form>
+
+{% if invoices %}
+<div class="row g-4">
+    {% for inv in invoices %}
+    <div class="col-12 col-md-6 col-lg-4">
+        <div class="doc-card animate-in">
+            <div class="doc-card-header">
+                <span class="doc-card-number">{{ inv.invoice_number }}</span>
+                {% if inv.is_archived %}<span class="badge-status badge-archived"><i class="bi bi-archive-fill me-1"></i>Archived</span>
+                {% elif inv.is_overdue %}<span class="badge-status badge-overdue">Overdue</span>
+                {% elif inv.status == 'Paid' %}<span class="badge-status badge-paid">Paid</span>
+                {% elif inv.status == 'Partially Paid' %}<span class="badge-status badge-partial">Partial</span>
+                {% else %}<span class="badge-status badge-pending">Pending</span>{% endif %}
+            </div>
+            <div class="doc-card-body">
+                <div class="doc-card-client">
+                    <div class="doc-client-name">{{ inv.client.name }}</div>
+                    {% if inv.client.company_name %}
+                    <div class="doc-client-company">{{ inv.client.company_name }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="doc-meta-grid">
+                    <div class="doc-meta-item">
+                        <span class="doc-meta-label">Date</span>
+                        <span class="doc-meta-value">{{ inv.date_created.strftime('%d %b %Y') }}</span>
+                    </div>
+                    <div class="doc-meta-item">
+                        <span class="doc-meta-label">Due</span>
+                        <span class="doc-meta-value">{{ inv.due_date.strftime('%d %b %Y') if inv.due_date else '—' }}</span>
+                    </div>
+                </div>
+
+                <div class="doc-amount-section">
+                    <span class="doc-amount-label">Amount</span>
+                    <span class="doc-amount-value">₹{{ '{:,.2f}'.format(inv.total_amount) }}</span>
+                </div>
+            </div>
+            <div class="doc-card-footer">
+                <a href="{{ url_for('invoices.view_invoice', id=inv.id) }}" class="btn btn-inf-outline btn-sm" title="View"><i class="bi bi-eye"></i></a>
+                <a href="{{ url_for('invoices.download_pdf', id=inv.id) }}" class="btn btn-inf-outline btn-sm" title="PDF"><i class="bi bi-file-pdf"></i></a>
+                {% if inv.is_archived %}
+                <form method="POST" action="{{ url_for('invoices.unarchive_invoice', id=inv.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-inf-outline btn-sm" title="Restore"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-inf-archive btn-sm" title="Archive" data-url="{{ url_for('invoices.archive_invoice', id=inv.id) }}" data-msg="Archive invoice {{ inv.invoice_number }}?" onclick="confirmArchive(this)"><i class="bi bi-archive"></i></button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="inf-card">
+    <div class="card-body">
+        <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-receipt-cutoff"></i></div>
+            <h6>No invoices found</h6>
+            <p>{% if search or status_filter %}Try adjusting your filters.{% else %}Create your first invoice to get started.{% endif %}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Mobile FAB for New Invoice -->
+<a href="{{ url_for('invoices.create_invoice') }}" class="mobile-fab d-md-none" title="New Invoice">
+    <i class="bi bi-plus"></i>
+</a>
+{% endblock %}
