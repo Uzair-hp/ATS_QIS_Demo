@@ -118,6 +118,7 @@ qis_out.log
 qis_err.log
 *.db-shm
 *.db-wal
+DB_OPERATIONS.md
 
 # PWA / Service Worker cache
 *.workbox.js

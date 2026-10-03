@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Built by:** ATS Automation  
 > **Stack:** Python Â· Flask Â· SQLite Â· Bootstrap 5 Â· PWA  
-> **Live URL:** [bims.pythonanywhere.com](https://bims.pythonanywhere.com)
+> **Live URL:** [your-domain.com](https://your-domain.com)
 
 ---
 
@@ -139,8 +139,8 @@ To stop the server press **Ctrl + C** in the terminal.
 
 ### Production (Hosted)
 
-The app is live and hosted at: **[bims.pythonanywhere.com](https://bims.pythonanywhere.com)**  
-Hosting Platform: [PythonAnywhere](https://www.pythonanywhere.com)
+The app can be deployed to your preferred hosting platform.  
+Configure your domain and WSGI server (e.g., Gunicorn, uWSGI) accordingly.
 
 ---
 
@@ -616,8 +616,8 @@ A: Yes. PDFs are generated using `xhtml2pdf`, which uses a separate rendering en
 ## Support & Maintenance
 
 - **App developed by:** ATS Automation
-- **Live URL:** [bims.pythonanywhere.com](https://bims.pythonanywhere.com)
-- **Hosting Platform:** PythonAnywhere
+- **Live URL:** [your-domain.com](https://your-domain.com)
+- **Hosting Platform:** Your preferred platform
 - **Database location:** `instance/ats.db`
 - **Logs:** Run with `FLASK_ENV=development` to see detailed error logs in the terminal
 - **Port:** Default `5000` (local) â€” change in `app.py` if needed

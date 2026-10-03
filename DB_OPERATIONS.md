@@ -1,12 +1,12 @@
 ﻿# ATS QIS â€” Database Operations Guide
 ### SQLite & SQLAlchemy Command Reference
 
-> **Project Path:** `/home/bims/ims/`  
-> **Database File:** `/home/bims/ims/instance/ats.db`  
+> **Project Path:** `/path/to/your/project/`  
+> **Database File:** `instance/ats.db`  
 > **ORM:** Flask-SQLAlchemy  
-> **Live URL:** [bims.pythonanywhere.com](https://bims.pythonanywhere.com)  
-> **Hosting:** PythonAnywhere  
-> **Console:** PythonAnywhere â†’ Dashboard â†’ Bash Console
+> **Live URL:** [your-domain.com](https://your-domain.com)  
+> **Hosting:** Your preferred platform  
+> **Console:** Your platform's terminal/console
 
 ---
 
@@ -14,7 +14,7 @@
 
 ```bash
 # ALWAYS backup your database before running any destructive commands!
-cp /home/bims/ims/instance/ats.db /home/bims/ims/instance/ats_backup.db
+cp instance/ats.db instance/ats_backup.db
 ```
 
 ---
@@ -43,7 +43,7 @@ cp /home/bims/ims/instance/ats.db /home/bims/ims/instance/ats_backup.db
 
 ### Steps:
 
-**Step 1:** PythonAnywhere Dashboard â†’ **Consoles** â†’ **Bash** (new console kholo)
+**Step 1:** Open your terminal/console (Bash, PowerShell, CMD)
 
 **Step 2:** Ye commands ek ek karke paste karo:
 
@@ -81,12 +81,12 @@ exit()
 
 ### Steps:
 
-**Step 1:** PythonAnywhere Dashboard â†’ **Consoles** â†’ **Bash** (new console kholo)
+**Step 1:** Open your terminal/console (Bash, PowerShell, CMD)
 
 **Step 2:** Ye command paste karo:
 
 ```bash
-sqlite3 /home/bims/ims/instance/ats.db
+sqlite3 instance/ats.db
 ```
 
 **Step 3:** SQLite shell khulega (`sqlite>` dikhega), ab ye paste karo:
@@ -1118,11 +1118,11 @@ sqlite3 /home/bims/ims/instance/ats.db .dump > /home/bims/ims/backup_full.sql
 ### ðŸ“¥ Restore from Backup
 
 ```bash
-# Reload the web app from PythonAnywhere dashboard after restoring
-cp /home/bims/ims/instance/ats_backup.db /home/bims/ims/instance/ats.db
+# Reload the web app after restoring
+cp instance/ats_backup.db instance/ats.db
 ```
 
-> ðŸ’¡ After restoring, go to PythonAnywhere Dashboard â†’ **Web** tab â†’ click **Reload** button to restart the app.
+> ðŸ’¡ After restoring, restart your web application to apply changes.
 
 ### ðŸ”§ Check Database Integrity
 
@@ -1149,7 +1149,7 @@ VACUUM;
 
 ### ðŸ”„ Reload App After DB Changes
 
-> After making any database changes via console, go to **PythonAnywhere Dashboard â†’ Web tab â†’ Reload** to apply changes to the live site.
+> After making any database changes via console, restart your web application to apply changes to the live site.
 
 ---
 
