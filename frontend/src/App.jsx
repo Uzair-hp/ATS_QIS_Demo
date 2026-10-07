@@ -12,6 +12,7 @@ import InvoiceView from './pages/InvoiceView'
 import QuotationsList from './pages/QuotationsList'
 import QuotationForm from './pages/QuotationForm'
 import QuotationView from './pages/QuotationView'
+import QuotationPrintPage from './pages/QuotationPrintPage'
 import Settings from './pages/Settings'
 import { useAuth } from './context/AuthContext'
 
@@ -35,6 +36,11 @@ export default function App() {
       <Route path="/quotations/create" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
       <Route path="/quotations/edit/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
       <Route path="/quotations/:id" element={<ProtectedRoute><QuotationView /></ProtectedRoute>} />
+      <Route path="/quotations/:id/print" element={<ProtectedRoute><QuotationPrintPage /></ProtectedRoute>} />
+      {/* Sample preview: no id, so the page renders the checked-in FORTIS
+          HOSPITAL sample. A static segment outranks :id in the matcher, the
+          same way /quotations/create already does. */}
+      <Route path="/quotations/print" element={<ProtectedRoute><QuotationPrintPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

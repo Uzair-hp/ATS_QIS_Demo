@@ -309,6 +309,13 @@ export default function QuotationView() {
                 <span>Download Branded PDF</span>
               </a>
 
+              {/* Browser print of the measured A4 sheet. The branded PDF above
+                  is the server-side xhtml2pdf render and is left untouched. */}
+              <Link to={`/quotations/${q.id}/print`} className="btn btn-inf-outline w-100">
+                <i className="bi bi-printer"></i>
+                <span>Print / Save as PDF</span>
+              </Link>
+
               {q.status !== 'Invoiced' && (
                 <button className="btn btn-inf-success w-100" onClick={convert}>
                   <i className="bi bi-receipt"></i>

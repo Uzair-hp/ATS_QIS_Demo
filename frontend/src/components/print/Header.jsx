@@ -1,4 +1,7 @@
 import { COLORS, PAGE } from '../../lib/geometry'
+// Imported rather than referenced as '/assets/logo.png' so Vite rewrites the
+// URL to respect base '/app/'.
+import logoUrl from '../../../public/assets/logo.png'
 
 // Full-bleed blue banner. The swoosh, the light band and the white logo card
 // are all CSS/SVG - no bitmap assets exist for them.
@@ -27,7 +30,7 @@ export default function Header({ quotation }) {
       </svg>
 
       <div className="qp-logo-card">
-        <img src="/assets/logo.png" alt={quotation.company?.name ?? 'ATS Automation'} />
+        <img src={logoUrl} alt={quotation.company?.name ?? 'ATS Automation'} />
       </div>
     </div>
   )

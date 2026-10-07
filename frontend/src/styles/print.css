@@ -49,9 +49,11 @@
 .qp-sheet {
   position: relative;
   width: 210mm;
-  height: 297mm;
+  min-height: 297mm;
+  height: auto;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
+  display: flow-root;
   font-family: var(--font-sans);
   font-weight: 700;
   color: #000;
@@ -61,14 +63,18 @@
 
 /* ---- page watermark -------------------------------------------------- */
 /* The target watermark is a large gear on the left plus "ATS" on the right,
-   showing faintly through the whole body. Placeholder artwork. */
+   showing faintly through the whole body. Placeholder artwork. The URL is
+   supplied as the --qp-watermark custom property by QuotationPrint, so Vite
+   resolves it and it respects base '/app/'. */
 .qp-watermark {
   position: absolute;
   left: 0;
   top: 76mm;
   width: 210mm;
   height: 152mm;
-  background: url('/assets/watermark.svg') no-repeat center;
+  background-image: var(--qp-watermark, none);
+  background-repeat: no-repeat;
+  background-position: center;
   background-size: 100% 100%;
   opacity: 0.038;
   pointer-events: none;
@@ -118,24 +124,26 @@
 
 /* ---- absolutely positioned sections ---------------------------------- */
 .qp-sec {
-  position: absolute;
-  left: var(--content-left);
+  position: relative;
+  margin-left: var(--content-left);
   width: var(--content-w);
 }
 
 .qp-sec-info {
-  top: 48.628mm; /* y 576 px */
+  margin-top: 48.628mm; /* y 576 px */
 }
 .qp-sec-items {
-  top: 81.89mm; /* y 970 px */
+  margin-top: 0.509mm; /* 81.89 - 48.628 - 32.753 */
+  min-height: 56.74mm; /* 138.63 - 81.89: preserves the measured gap for the standard case */
 }
 .qp-sec-totals {
-  top: 138.63mm; /* y 1642 px */
+  /* follows the items section naturally in flow */
 }
 .qp-sec-sig {
-  top: 195.44mm; /* y 2315 px */
-  left: var(--sig-left);
+  margin-top: 0.5mm; /* 195.44 - 194.94 */
+  margin-left: var(--sig-left);
   width: var(--sig-w);
+  min-height: 81mm; /* contains the absolutely-positioned signature lines */
 }
 
 /* ---- title ----------------------------------------------------------- */
@@ -543,11 +551,10 @@
    box 3 at x 1565..2481 px, y 3296..3403 px; a full-width band runs
    y 3404..3503 px behind and below them. */
 .qp-footer {
-  position: absolute;
-  left: 0;
-  top: 281.56mm; /* y 3335 px */
+  position: relative;
   width: 210mm;
   height: 14.16mm;
+  margin-top: 5.12mm; /* 281.56 - 276.44: lands it at the measured y for the standard case */
 }
 
 .qp-footer-band {
@@ -654,6 +661,13 @@
   .qp-sheet {
     margin: 0;
     box-shadow: none;
+    /* allow the sheet to paginate when content exceeds one page */
+  }
+
+  .qp-sec-info,
+  .qp-sec-totals,
+  .qp-sec-sig,
+  .qp-footer {
     break-inside: avoid;
     page-break-inside: avoid;
   }
