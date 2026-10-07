@@ -1,0 +1,665 @@
+/* ==========================================================================
+   ATS quotation sheet - A4 print layout
+
+   Every number below was measured from FORTIS HOSPITAL_page-0001.jpg at
+   300 dpi (11.845 px/mm). Do not "tidy" them; they are the spec.
+
+   Sections are absolutely positioned at their measured y offset so a longer
+   or shorter item list can never push the totals, signature box or footer
+   out of place.
+
+   Type sizes were fitted by rendering each measured string with PIL against
+   the real Calibri / Cambria / Arial files and matching the ink width
+   (see tools/fitfonts.py and tools/fitratio.py).
+   ========================================================================== */
+
+:root {
+  --font-sans: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
+  --font-serif: Cambria, Constantia, Georgia, 'Times New Roman', serif;
+  --font-num: 'Times New Roman', Cambria, Georgia, serif;
+  --font-heavy: 'Arial Narrow', 'Tw Cen MT Cond', Arial, sans-serif;
+  --font-cond: 'Arial Narrow', 'Roboto Condensed', Calibri, sans-serif;
+
+  --rule: #000;
+  --rule-w: 1px;
+  /* a target "double rule" is 3px line / 3px gap / 3px line at 300 dpi,
+     i.e. 1px / 1px / 1px in CSS pixels. Chrome renders `border-style: double`
+     as solid at these widths, so the second line is drawn with a pseudo
+     element 2px below the cell's padding box instead. */
+  --rule-gap: 3px;
+
+  /* measured page geometry, mm */
+  --content-left: 8.696mm;
+  --content-w: 195.443mm;
+  --sig-left: 7.092mm;
+  --sig-w: 197.047mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.qp-sheet-wrap {
+  background: #5b6470;
+  padding: 8mm 0;
+  display: flex;
+  justify-content: center;
+}
+
+.qp-sheet {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  background: #fff;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---- page watermark -------------------------------------------------- */
+/* The target watermark is a large gear on the left plus "ATS" on the right,
+   showing faintly through the whole body. Placeholder artwork. */
+.qp-watermark {
+  position: absolute;
+  left: 0;
+  top: 76mm;
+  width: 210mm;
+  height: 152mm;
+  background: url('/assets/watermark.svg') no-repeat center;
+  background-size: 100% 100%;
+  opacity: 0.038;
+  pointer-events: none;
+}
+
+/* ---- header banner --------------------------------------------------- */
+.qp-banner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210mm;
+  height: 17.139mm;
+}
+
+.qp-banner-art {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210mm;
+  height: 34.4mm;
+}
+
+.qp-logo-card {
+  position: absolute;
+  left: 5.73mm;
+  top: 9.87mm;
+  width: 58.9mm;
+  height: 23.4mm;
+  background: #fff;
+  border-radius: 2.2mm;
+}
+
+/* The logo is placed by its INK box: the target's ink occupies
+   x 60..789 px, y 100..319 px (61.56 x 18.58 mm). The PNG's own ink starts
+   3.94 mm from its left edge and 0.82 mm from its top, so the <img> box is
+   offset back by those amounts. Width and height are both stated because
+   the target's logo is drawn wider than the PNG's natural aspect - the
+   supplied asset is a stand-in and can be swapped without touching this. */
+.qp-logo-card img {
+  position: absolute;
+  left: 0.2mm; /* ink at x 135 px */
+  top: 2.33mm; /* ink at y 154 px */
+  width: 56.1mm;
+  height: 20.48mm;
+  display: block;
+}
+
+/* ---- absolutely positioned sections ---------------------------------- */
+.qp-sec {
+  position: absolute;
+  left: var(--content-left);
+  width: var(--content-w);
+}
+
+.qp-sec-info {
+  top: 48.628mm; /* y 576 px */
+}
+.qp-sec-items {
+  top: 81.89mm; /* y 970 px */
+}
+.qp-sec-totals {
+  top: 138.63mm; /* y 1642 px */
+}
+.qp-sec-sig {
+  top: 195.44mm; /* y 2315 px */
+  left: var(--sig-left);
+  width: var(--sig-w);
+}
+
+/* ---- title ----------------------------------------------------------- */
+.qp-title-area {
+  position: absolute;
+  left: var(--content-left);
+  top: 17.139mm; /* y 203 px */
+  width: var(--content-w);
+  height: 31.49mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* the target centres the heading 12.5 mm right of the content centre */
+  padding-left: 22.1mm;
+}
+
+.qp-title {
+  margin: 0;
+  transform: translateY(11.55mm);
+  font-family: var(--font-serif);
+  font-size: 17.5pt;
+  font-weight: 700;
+  line-height: 1;
+  color: #00acec;
+  white-space: nowrap;
+}
+
+/* ---- shared table chrome --------------------------------------------- */
+.qp-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: var(--rule-w) solid var(--rule);
+}
+
+.qp-table td,
+.qp-table th {
+  position: relative;
+  border: var(--rule-w) solid var(--rule);
+  padding: 0 1.2mm;
+  vertical-align: top;
+  font-size: 11pt;
+  line-height: 10.2pt;
+  overflow-wrap: break-word;
+}
+
+.qp-table th {
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.3mm 0.5mm;
+}
+
+/* The double rule that closes table A is drawn by table B's top edge, so both
+   lines live in one place and stay aligned regardless of table A's height. */
+.qp-dbl-t > td::before,
+.qp-dbl-t > th::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--rule-gap));
+  height: var(--rule-w);
+  background: var(--rule);
+}
+
+/* second line of a double rule, 1 CSS px below the 1px border */
+.qp-dbl > td::after,
+.qp-dbl > th::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--rule-gap));
+  height: var(--rule-w);
+  background: var(--rule);
+}
+
+/* ---- table A: party / meta ------------------------------------------- */
+.qp-info {
+  border-bottom: none;
+}
+.qp-info tr:nth-child(5) > td {
+  border-bottom: none;
+}
+
+.qp-info tr:nth-child(1) {
+  height: 8.696mm;
+}
+.qp-info tr:nth-child(2),
+.qp-info tr:nth-child(3) {
+  height: 4.474mm;
+}
+.qp-info tr:nth-child(4) {
+  height: 10.553mm;
+}
+/* ends 6 px (0.51 mm) above the items table's top edge, so the two 1 px
+   borders read as the target's double rule with a 3 px gap */
+.qp-info tr:nth-child(5) {
+  height: 4.556mm;
+}
+
+.qp-to {
+  padding: 1.15mm 1.2mm 0.15mm 2.05mm !important;
+  white-space: nowrap;
+}
+
+.qp-invoice-label {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 13pt !important;
+  white-space: nowrap;
+  padding-top: 0.35mm !important;
+}
+
+.qp-date {
+  text-align: left;
+  padding: 0.1mm 1.2mm 0 6.6mm !important;
+}
+
+.qp-tot-label,
+.qp-tot-value,
+.qp-grand-value {
+  position: relative;
+}
+
+.qp-meta {
+  text-align: left;
+  vertical-align: middle !important;
+  padding: 0 1.2mm 0 7.5mm !important;
+  top: -0.34mm;
+}
+
+/* the delivery row sits further left than the rows above it */
+.qp-meta:has(.qp-mark) {
+  padding-left: 4.2mm !important;
+  top: -0.68mm;
+}
+
+.qp-kindattn {
+  text-align: left;
+  vertical-align: middle !important;
+  padding: 0 1.2mm 0 6.8mm !important;
+  top: -0.25mm;
+  font-size: 11.4pt !important;
+  line-height: 13.5pt !important;
+}
+
+.qp-gstno {
+  text-align: center;
+  vertical-align: middle !important;
+  font-size: 11.4pt !important;
+  line-height: 13.5pt !important;
+  white-space: nowrap;
+  left: -3.3mm;
+  top: -0.76mm;
+}
+
+.qp-serif {
+  font-family: var(--font-serif);
+}
+
+.qp-mark {
+  background: #ffff00;
+  color: #000;
+  padding: 0;
+}
+
+/* ---- table B: items --------------------------------------------------- */
+.qp-items thead tr {
+  height: 10.046mm; /* 119 px: 970 -> 1089 */
+}
+
+/* in the target every header label sits right of its column centre */
+.qp-items th {
+  padding-right: 0 !important;
+}
+.qp-items th:nth-child(1) { padding-left: 9.7mm !important; }
+.qp-items th:nth-child(2) { padding-left: 2.5mm !important; }
+.qp-items th:nth-child(3) { padding-left: 7.2mm !important; }
+.qp-items th:nth-child(4) { padding-left: 8.1mm !important; }
+.qp-items th:nth-child(5) { padding-left: 7.7mm !important; }
+.qp-items th:nth-child(6) { padding-left: 8.8mm !important; }
+.qp-items td:nth-child(1) {
+  text-align: left;
+  padding-left: 2.5mm !important;
+  padding-right: 1.2mm !important;
+}
+
+.qp-items thead th {
+  font-size: 12.2pt;
+  line-height: 12.7pt;
+}
+
+
+/* the target's header text block sits 2 mm above the cell's centre */
+.qp-hdr {
+  display: inline-block;
+  transform: translateY(-2mm);
+}
+
+.qp-items thead tr > th {
+  border-top: var(--rule-w) solid var(--rule);
+}
+
+.qp-items tbody tr {
+  height: 8.04mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.qp-items tbody tr:last-child > td {
+  border-bottom: none;
+}
+.qp-items {
+  border-bottom: none;
+}
+
+.qp-items tbody td {
+  padding: 0.72mm 2.4mm;
+  font-size: 13.6pt;
+  /* 16.9 pt is the best single compromise: the source document uses ~17.25 pt
+     for item 1 but ~12.4 pt for item 2, which no content-derived value can
+     reproduce. This keeps the whole items table exactly 672 px / 56.73 mm tall
+     and lands item 1's rule within 0.25 mm. */
+  line-height: 16.9pt;
+}
+
+.qp-particular {
+  text-align: justify;
+}
+
+.qp-num {
+  text-align: center;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 10.5pt !important;
+  line-height: 16.9pt !important;
+  top: -0.6mm;
+}
+
+/* the serial column is sans-serif in the target, unlike the other numbers */
+.qp-sr {
+  font-family: var(--font-sans);
+  font-size: 11pt !important;
+  line-height: 16.9pt !important;
+}
+
+/* ---- table C: totals / company --------------------------------------- */
+.qp-totals tr:nth-child(1) {
+  height: 5.572mm;
+}
+.qp-totals tr:nth-child(2) {
+  height: 10.553mm;
+}
+
+.qp-tot-label,
+.qp-tot-value {
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+  font-size: 11.6pt !important;
+  line-height: 14.35pt !important;
+  padding: 0 0.4mm !important;
+}
+
+.qp-tot-value {
+  font-family: var(--font-heavy);
+  font-size: 13.8pt !important;
+}
+
+.qp-totals tr:nth-child(1) .qp-tot-value { top: 0.34mm; }
+.qp-totals tr:nth-child(2) .qp-tot-value { top: -1.77mm; }
+.qp-totals tr:nth-child(1) .qp-tot-label {
+  top: 0.34mm;
+  font-size: 12.5pt !important;
+}
+.qp-totals tr:nth-child(2) .qp-tot-label { left: -1.5mm; }
+
+.qp-totals-cont {
+  border-top: none;
+  margin-top: -1px;
+}
+.qp-totals-cont tr:nth-child(1) {
+  height: 5.066mm;
+}
+.qp-totals-cont tr:nth-child(2) {
+  height: 35.119mm;
+}
+.qp-totals-cont tr:nth-child(2) > td {
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+
+.qp-company-gstin {
+  font-family: var(--font-cond);
+  font-size: 12.3pt !important;
+  line-height: 12pt !important;
+  padding: 0.35mm 1.2mm 0 9.5mm !important;
+  white-space: nowrap;
+}
+
+.qp-company {
+  font-size: 12.87pt !important;
+  line-height: 13.9pt !important;
+  padding: 0.15mm 1.2mm 0 2.9mm !important;
+}
+
+.qp-grand-label,
+.qp-grand-value {
+  vertical-align: middle !important;
+  text-align: center !important;
+  font-size: 13.8pt !important;
+  line-height: 14.9pt !important;
+  top: 1mm;
+}
+.qp-grand-value {
+  font-family: var(--font-heavy);
+  font-size: 13.8pt !important;
+  white-space: nowrap;
+  top: 1.35mm;
+}
+
+/* ---- table D: signature ---------------------------------------------- */
+.qp-sigbox {
+  width: 100%;
+}
+
+.qp-sigbox tr {
+  height: 66.1mm;
+}
+
+.qp-sigcell {
+  text-align: center;
+  padding: 0.8mm 0.4mm 0 !important;
+  position: relative;
+}
+
+.qp-for {
+  white-space: nowrap;
+  font-size: 12.2pt;
+  line-height: 12.5pt;
+  margin-top: 3.6mm;
+}
+
+.qp-maroon {
+  color: #5f1f1f;
+}
+
+.qp-stamp {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14.12mm;
+  display: flex;
+  justify-content: center;
+}
+.qp-stamp img {
+  width: 40.3mm;
+  height: 32.4mm;
+  object-fit: contain;
+  opacity: 0.85;
+}
+
+.qp-signatory {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 45.8mm;
+  white-space: nowrap;
+  font-size: 12.2pt;
+  padding-left: 4.2mm;
+  line-height: 12.5pt;
+}
+
+/* ---- signature lines below the box ----------------------------------- */
+/* offsets are relative to .qp-sec-sig (top 194.85 mm) */
+.qp-siglines {
+  position: absolute;
+  left: -5.49mm; /* x 19 px from the page edge */
+  top: 65.9mm;
+  width: 60mm;
+  font-family: var(--font-cond);
+  font-size: 9.2pt;
+}
+
+.qp-sigline {
+  line-height: 1;
+}
+
+.qp-sigline i {
+  display: block;
+  margin-top: 0.5mm;
+  margin-left: 0.4mm;
+  width: 30mm;
+  height: var(--rule-w);
+  background: var(--rule);
+}
+
+.qp-sigline-name {
+  margin-top: 4.25mm;
+}
+
+/* ---- footer ---------------------------------------------------------- */
+/* measured: boxes 1-2 at x 0..715 / 736..1536 px, y 3335..3403 px;
+   box 3 at x 1565..2481 px, y 3296..3403 px; a full-width band runs
+   y 3404..3503 px behind and below them. */
+.qp-footer {
+  position: absolute;
+  left: 0;
+  top: 281.56mm; /* y 3335 px */
+  width: 210mm;
+  height: 14.16mm;
+}
+
+.qp-footer-band {
+  position: absolute;
+  left: 0;
+  top: 5.83mm;
+  width: 100%;
+  height: 8.44mm;
+  background: linear-gradient(180deg, #1b7cbb 0%, #15588f 100%);
+}
+
+.qp-footer-box {
+  position: absolute;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 8pt;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
+  border-radius: 1.6mm;
+  padding: 0 3mm;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.qp-footer-a {
+  left: 0;
+  top: 0;
+  width: 60.36mm;
+  height: 5.74mm;
+  background: #2aa6dc;
+  padding-right: 12mm;
+}
+.qp-footer-b {
+  left: 62.14mm;
+  top: 0;
+  width: 67.54mm;
+  height: 5.74mm;
+  background: #2aa6dc;
+  padding-right: 3.6mm;
+}
+.qp-footer-c {
+  left: 132.13mm;
+  top: -3.3mm;
+  width: 77.33mm;
+  height: 9.03mm;
+  background: linear-gradient(180deg, #1e7bb5 0%, #165e90 100%);
+  border-radius: 2.4mm 0 0 2.4mm;
+  flex-direction: column;
+  padding: 0 2mm 0 2mm;
+  padding-right: 13.4mm;
+}
+
+.qp-footer-rule {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 0.25mm;
+  background: #3f9bda;
+}
+
+/* ==========================================================================
+   print rules
+   ========================================================================== */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body,
+  #root,
+  .app,
+  .app-grid,
+  .app-preview {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    height: auto;
+    display: block;
+    max-height: none;
+    overflow: visible;
+    position: static;
+    top: auto;
+    min-width: 0;
+  }
+
+  .app-form,
+  .preview-caption {
+    display: none !important;
+  }
+
+  .qp-sheet-wrap {
+    background: none;
+    padding: 0;
+    display: block;
+  }
+
+  .qp-sheet {
+    margin: 0;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .qp-sheet * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

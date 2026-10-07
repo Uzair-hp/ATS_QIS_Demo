@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- Placeholder page watermark: gear silhouette + ATS wordmark.
+       Replace with the real brand watermark when it is supplied. -->
+  <g fill="none" stroke="#1D6EA6" stroke-width="6">
+    <circle cx="250" cy="300" r="150"/>
+    <circle cx="250" cy="300" r="104"/>
+    <g stroke-width="26">
+      <line x1="250" y1="118" x2="250" y2="150"/>
+      <line x1="250" y1="450" x2="250" y2="482"/>
+      <line x1="68"  y1="300" x2="100" y2="300"/>
+      <line x1="400" y1="300" x2="432" y2="300"/>
+      <line x1="122" y1="172" x2="145" y2="195"/>
+      <line x1="355" y1="405" x2="378" y2="428"/>
+      <line x1="122" y1="428" x2="145" y2="405"/>
+      <line x1="355" y1="195" x2="378" y2="172"/>
+    </g>
+  </g>
+  <text x="470" y="400" font-family="Calibri, Arial, sans-serif" font-size="230"
+        font-weight="700" fill="#1D6EA6" stroke="none" letter-spacing="-6">ATS</text>
+</svg>

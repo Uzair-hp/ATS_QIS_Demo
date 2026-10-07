@@ -165,6 +165,7 @@ def create_app():
         for col in [
             "ALTER TABLE quotations ADD COLUMN subject VARCHAR(200)",
             "ALTER TABLE quotations ADD COLUMN delivery_address TEXT",
+            "ALTER TABLE quotations ADD COLUMN payment_terms VARCHAR(100)",
             "ALTER TABLE quotations ADD COLUMN gst_percent FLOAT DEFAULT 0.0",
             "ALTER TABLE quotations ADD COLUMN gst_amount FLOAT DEFAULT 0.0",
         ]:

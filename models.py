@@ -212,6 +212,7 @@ class Quotation(db.Model):
     # ATS-specific fields
     subject = db.Column(db.String(200), nullable=True)  # e.g., "BOOM BARRIER"
     delivery_address = db.Column(db.Text, nullable=True)
+    payment_terms = db.Column(db.String(100), nullable=True)  # e.g., "100% Advance"
     gst_percent = db.Column(db.Float, default=0.0)
     gst_amount = db.Column(db.Float, default=0.0)
 
