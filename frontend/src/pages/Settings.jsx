@@ -34,7 +34,9 @@ export default function Settings() {
     if (stampFile) fd.append('stamp_image', stampFile)
     if (removeStamp) fd.append('remove_stamp', '1')
     try {
-      await api.post('/settings/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      // No Content-Type header: the central api client drops it for FormData
+      // so the browser can add the multipart boundary itself.
+      await api.post('/settings/', fd)
       push('Company settings saved!', 'success')
       setStampFile(null); setRemoveStamp(false)
       if (fileRef.current) fileRef.current.value = ''

@@ -15,6 +15,11 @@ from flask import (
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, CompanyProfile, now_ist, IST
+from routes.validation import (
+    validate_client_id, validate_discount, validate_gst_percent,
+    validate_due_days, validate_advance_amount, parse_item_quantity,
+    parse_item_rate, validate_item_name, validation_error_response
+)
 
 invoices_bp = Blueprint('invoices', __name__)
 
@@ -89,15 +94,11 @@ def _calc_totals(sub_total, discount_val, discount_type, gst_percent=0.0):
 
 def _build_items(parent, item_names, item_descs, item_qtys, item_rates, item_hsns, item_cls):
     sub_total = 0.0
-    for name, desc, qty_s, rate_s, hsn in zip(item_names, item_descs, item_qtys, item_rates, item_hsns):
+    for name, desc, qty, rate, hsn in zip(item_names, item_descs, item_qtys, item_rates, item_hsns):
         name = name.strip()
         if not name:
             continue
-        try:
-            qty = float(qty_s)
-            rate = float(rate_s)
-        except (ValueError, TypeError):
-            qty, rate = 1.0, 0.0
+        # Values are pre-validated; no silent fallbacks
         amount = round(qty * rate, 2)
         sub_total += amount
         parent.items.append(item_cls(
@@ -274,40 +275,55 @@ def create_invoice():
             item_hsns = [''] * len(item_names)
 
     if not client_id:
-        return jsonify({'error': 'Please select a client.'}), 400
+        return validation_error_response('Please select a client.')
     if not item_names or not any(str(n).strip() for n in item_names):
-        return jsonify({'error': 'Please add at least one service item.'}), 400
+        return validation_error_response('Please add at least one service item.')
+
+    # Validate client_id
+    try:
+        client_id = validate_client_id(client_id)
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     profile = CompanyProfile.get_profile()
 
+    # Validate discount
     try:
-        discount_val = float(data.get('discount', 0) or 0)
-    except (ValueError, TypeError):
-        discount_val = 0.0
+        discount_val = validate_discount(data.get('discount'), data.get('discount_type', 'flat'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     discount_type = data.get('discount_type', 'flat')
+
+    # Validate due_days
     try:
-        due_days = int(data.get('due_days', profile.default_due_days or 15))
-    except (ValueError, TypeError):
-        due_days = 15
+        due_days = validate_due_days(data.get('due_days'), profile.default_due_days or 15)
+    except ValueError as e:
+        return validation_error_response(str(e))
+
     payment_mode = data.get('payment_mode') or None
     notes = (data.get('notes') or '').strip()
+
+    # Validate advance_amount
     try:
-        advance_amount = float(data.get('advance_amount', 0) or 0)
-    except (ValueError, TypeError):
-        advance_amount = 0.0
+        advance_amount = validate_advance_amount(data.get('advance_amount'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
     subject = (data.get('subject') or '').strip() or None
     delivery_address = (data.get('delivery_address') or '').strip() or None
     payment_terms = (data.get('payment_terms') or '').strip() or None
     voucher_number = (data.get('voucher_number') or '').strip() or None
+
+    # Validate gst_percent
     try:
-        gst_percent = float(data.get('gst_percent', 0) or 0)
-    except (ValueError, TypeError):
-        gst_percent = 0.0
+        gst_percent = validate_gst_percent(data.get('gst_percent'))
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     now = now_ist()
     invoice = Invoice(
         invoice_number=generate_invoice_number(),
-        client_id=int(client_id),
+        client_id=client_id,
         date_created=now,
         due_date=now + timedelta(days=due_days),
         discount=discount_val,
@@ -321,6 +337,14 @@ def create_invoice():
         voucher_number=voucher_number,
         gst_percent=gst_percent,
     )
+
+    # Validate and build items
+    try:
+        item_names = [validate_item_name(n) for n in item_names]
+        item_qtys = [parse_item_quantity(q) for q in item_qtys]
+        item_rates = [parse_item_rate(r) for r in item_rates]
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     sub_total = _build_items(invoice, item_names, item_descs, item_qtys, item_rates, item_hsns, InvoiceItem)
     invoice.sub_total = round(sub_total, 2)
@@ -405,18 +429,25 @@ def view_invoice(id):
 def edit_invoice(id):
     invoice = Invoice.query.get_or_404(id)
     if invoice.status not in ('Pending', 'Partially Paid'):
-        return jsonify({'error': 'Only pending or partially paid invoices can be edited.'}), 400
+        return validation_error_response('Only pending or partially paid invoices can be edited.')
 
     data = request.get_json(silent=True) or request.form
     client_id = data.get('client_id')
     if not client_id:
-        return jsonify({'error': 'Please select a client.'}), 400
+        return validation_error_response('Please select a client.')
 
-    invoice.client_id = int(client_id)
+    # Validate client_id
     try:
-        discount_val = float(data.get('discount', 0) or 0)
-    except (ValueError, TypeError):
-        discount_val = 0.0
+        client_id = validate_client_id(client_id)
+    except ValueError as e:
+        return validation_error_response(str(e))
+    invoice.client_id = client_id
+
+    # Validate discount
+    try:
+        discount_val = validate_discount(data.get('discount'), data.get('discount_type', 'flat'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     invoice.discount = discount_val
     invoice.discount_type = data.get('discount_type', 'flat')
     invoice.payment_mode = data.get('payment_mode') or None
@@ -425,19 +456,25 @@ def edit_invoice(id):
     invoice.delivery_address = (data.get('delivery_address') or '').strip() or None
     invoice.payment_terms = (data.get('payment_terms') or '').strip() or None
     invoice.voucher_number = (data.get('voucher_number') or '').strip() or None
+
+    # Validate gst_percent
     try:
-        invoice.gst_percent = float(data.get('gst_percent', 0) or 0)
-    except (ValueError, TypeError):
-        invoice.gst_percent = 0.0
+        invoice.gst_percent = validate_gst_percent(data.get('gst_percent'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
+    # Validate due_days
     try:
-        due_days = int(data.get('due_days', 15))
-    except (ValueError, TypeError):
-        due_days = 15
+        due_days = validate_due_days(data.get('due_days'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     invoice.due_date = invoice.date_created + timedelta(days=due_days)
+
+    # Validate advance_amount
     try:
-        advance_amount = float(data.get('advance_amount', 0) or 0)
-    except (ValueError, TypeError):
-        advance_amount = 0.0
+        advance_amount = validate_advance_amount(data.get('advance_amount'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     invoice.advance_amount = advance_amount
 
     InvoiceItem.query.filter_by(invoice_id=invoice.id).delete()
@@ -454,6 +491,14 @@ def edit_invoice(id):
             item_descs = [''] * len(item_names)
         if not item_hsns or len(item_hsns) != len(item_names):
             item_hsns = [''] * len(item_names)
+
+    # Validate and build items
+    try:
+        item_names = [validate_item_name(n) for n in item_names]
+        item_qtys = [parse_item_quantity(q) for q in item_qtys]
+        item_rates = [parse_item_rate(r) for r in item_rates]
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     sub_total = _build_items(invoice, item_names, item_descs, item_qtys, item_rates, item_hsns, InvoiceItem)
     invoice.sub_total = round(sub_total, 2)
@@ -483,9 +528,9 @@ def update_status(id):
     payment_mode = data.get('payment_mode')
 
     try:
-        advance_amount = float(advance_amount_str)
-    except (ValueError, TypeError):
-        advance_amount = invoice.advance_amount
+        advance_amount = validate_advance_amount(advance_amount_str)
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     if advance_amount < 0:
         advance_amount = 0.0

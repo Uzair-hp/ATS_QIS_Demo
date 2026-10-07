@@ -4,9 +4,10 @@ REST API entry point (JSON only, no Jinja rendering).
 """
 
 import os
+import secrets
 from flask import Flask, jsonify, session, request
 from flask_cors import CORS
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 from werkzeug.exceptions import NotFound
 from models import db, now_ist, CompanyProfile, User
 from config import config_by_name
@@ -16,6 +17,15 @@ FRONTEND_DIST = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'dist'
 )
 
+CSRF_SESSION_KEY = 'csrf_token'
+CSRF_HEADER = 'X-CSRFToken'
+CSRF_SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
+
+# Endpoints reachable without a CSRF token: /api/auth/login (the very first
+# call a browser makes, before it can hold a session) and /api/auth/logout
+# (it only destroys the session, so a forged call cannot gain anything).
+CSRF_EXEMPT_ENDPOINTS = ('auth.login', 'auth.logout')
+
 
 def create_app():
     """Application factory."""
@@ -23,6 +33,23 @@ def create_app():
 
     env = os.environ.get('FLASK_ENV', 'development')
     app.config.from_object(config_by_name.get(env, config_by_name['development']))
+
+    # Validate SECRET_KEY: production must have it explicitly set in environment;
+    # development auto-generates an ephemeral one if missing (not persisted).
+    secret_key = os.environ.get('SECRET_KEY')
+    if env == 'production':
+        if not secret_key:
+            raise RuntimeError(
+                'SECRET_KEY must be set in environment for production. '
+                'Set it in .env or your deployment configuration.'
+            )
+        app.config['SECRET_KEY'] = secret_key
+    elif not secret_key:
+        # Development only: generate ephemeral secret so local dev works
+        # without a committed secret. This changes on every restart.
+        app.config['SECRET_KEY'] = secrets.token_hex(32)
+    else:
+        app.config['SECRET_KEY'] = secret_key
 
     os.makedirs(os.path.join(os.path.dirname(__file__), 'instance'), exist_ok=True)
 
@@ -44,6 +71,59 @@ def create_app():
     @login_manager.unauthorized_handler
     def unauthorized():
         return jsonify({'error': 'Authentication required'}), 401
+
+    # --- CSRF Protection ---
+    # Session-stored token, the same mechanism the Jinja app used. The token is
+    # handed to the SPA once via GET /api/auth/me and echoed back on every
+    # state-changing request in the X-CSRFToken header.
+    def csrf_token():
+        """The session's CSRF token, minted on first use."""
+        if CSRF_SESSION_KEY not in session:
+            session[CSRF_SESSION_KEY] = secrets.token_hex(32)
+        return session[CSRF_SESSION_KEY]
+
+    app.extensions['csrf_token'] = csrf_token
+
+    def _submitted_csrf_token():
+        # Header first (JSON API), then form body (multipart uploads).
+        header = request.headers.get(CSRF_HEADER)
+        if header:
+            return header.strip()
+        form = getattr(request, 'form', None)
+        if form:
+            return (form.get('csrf_token') or '').strip()
+        args = getattr(request, 'args', None)
+        if args:
+            return (args.get('csrf_token') or '').strip()
+        return ''
+
+    @app.before_request
+    def csrf_protect():
+        if request.method in CSRF_SAFE_METHODS:
+            return None
+        if request.endpoint in CSRF_EXEMPT_ENDPOINTS:
+            return None
+        # Nothing to ride on without a session, so let @login_required answer
+        # with 401 rather than masking it as a 403.
+        if not current_user.is_authenticated:
+            return None
+
+        expected = session.get(CSRF_SESSION_KEY)
+        submitted = _submitted_csrf_token()
+
+        if not expected or not submitted:
+            return jsonify({
+                'error': 'CSRF token missing.',
+                'detail': f'Send the token from GET /api/auth/me in the {CSRF_HEADER} header.',
+            }), 403
+
+        if not secrets.compare_digest(expected, submitted):
+            return jsonify({
+                'error': 'CSRF token validation failed.',
+                'detail': 'Refresh the page and try again.',
+            }), 403
+
+        return None
 
     # --- Register Blueprints (JSON API under /api) ---
     from routes.dashboard import dashboard_bp
@@ -165,4 +245,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    app.run(debug=app.config.get('DEBUG', False), port=5000)

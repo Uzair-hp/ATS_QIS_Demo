@@ -15,6 +15,11 @@ from flask import (
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem, CompanyProfile, now_ist, IST
+from routes.validation import (
+    validate_client_id, validate_discount, validate_gst_percent,
+    validate_valid_days, parse_item_quantity, parse_item_rate,
+    validate_item_name, validation_error_response
+)
 
 quotations_bp = Blueprint('quotations', __name__)
 
@@ -62,15 +67,11 @@ def _calc_totals(sub_total, discount_val, discount_type, gst_percent=0.0):
 
 def _build_items(parent, item_names, item_descs, item_qtys, item_rates, item_hsns, item_cls):
     sub_total = 0.0
-    for name, desc, qty_s, rate_s, hsn in zip(item_names, item_descs, item_qtys, item_rates, item_hsns):
+    for name, desc, qty, rate, hsn in zip(item_names, item_descs, item_qtys, item_rates, item_hsns):
         name = name.strip()
         if not name:
             continue
-        try:
-            qty = float(qty_s)
-            rate = float(rate_s)
-        except (ValueError, TypeError):
-            qty, rate = 1.0, 0.0
+        # Values are pre-validated; no silent fallbacks
         amount = round(qty * rate, 2)
         sub_total += amount
         parent.items.append(item_cls(
@@ -241,35 +242,47 @@ def create_quotation():
             item_hsns = [''] * len(item_names)
 
     if not client_id:
-        return jsonify({'error': 'Please select a client.'}), 400
+        return validation_error_response('Please select a client.')
     if not item_names or not any(str(n).strip() for n in item_names):
-        return jsonify({'error': 'Please add at least one line item.'}), 400
+        return validation_error_response('Please add at least one line item.')
+
+    # Validate client_id
+    try:
+        client_id = validate_client_id(client_id)
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     profile = CompanyProfile.get_profile()
 
+    # Validate discount
     try:
-        discount_val = float(data.get('discount', 0) or 0)
-    except (ValueError, TypeError):
-        discount_val = 0.0
+        discount_val = validate_discount(data.get('discount'), data.get('discount_type', 'flat'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     discount_type = data.get('discount_type', 'flat')
     estimated_timeline = (data.get('estimated_timeline') or '').strip()
     notes = (data.get('notes') or '').strip()
+
+    # Validate valid_days
     try:
-        valid_days = int(data.get('valid_days', 15))
-    except (ValueError, TypeError):
-        valid_days = 15
+        valid_days = validate_valid_days(data.get('valid_days'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
     subject = (data.get('subject') or '').strip() or None
     delivery_address = (data.get('delivery_address') or '').strip() or None
     payment_terms = (data.get('payment_terms') or '').strip() or None
+
+    # Validate gst_percent
     try:
-        gst_percent = float(data.get('gst_percent', 0) or 0)
-    except (ValueError, TypeError):
-        gst_percent = 0.0
+        gst_percent = validate_gst_percent(data.get('gst_percent'))
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     now = now_ist()
     quotation = Quotation(
         quotation_number=generate_quotation_number(),
-        client_id=int(client_id),
+        client_id=client_id,
         date_created=now,
         valid_until=now + timedelta(days=valid_days),
         estimated_timeline=estimated_timeline,
@@ -282,6 +295,14 @@ def create_quotation():
         payment_terms=payment_terms,
         gst_percent=gst_percent,
     )
+
+    # Validate and build items
+    try:
+        item_names = [validate_item_name(n) for n in item_names]
+        item_qtys = [parse_item_quantity(q) for q in item_qtys]
+        item_rates = [parse_item_rate(r) for r in item_rates]
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     sub_total = _build_items(quotation, item_names, item_descs, item_qtys, item_rates, item_hsns, QuotationItem)
     quotation.sub_total = round(sub_total, 2)
@@ -348,18 +369,25 @@ def view_quotation(id):
 def edit_quotation(id):
     quotation = Quotation.query.get_or_404(id)
     if quotation.status in ('Accepted', 'Invoiced'):
-        return jsonify({'error': 'Accepted or Invoiced quotations cannot be edited.'}), 400
+        return validation_error_response('Accepted or Invoiced quotations cannot be edited.')
 
     data = request.get_json(silent=True) or request.form
     client_id = data.get('client_id')
     if not client_id:
-        return jsonify({'error': 'Please select a client.'}), 400
+        return validation_error_response('Please select a client.')
 
-    quotation.client_id = int(client_id)
+    # Validate client_id
     try:
-        discount_val = float(data.get('discount', 0) or 0)
-    except (ValueError, TypeError):
-        discount_val = 0.0
+        client_id = validate_client_id(client_id)
+    except ValueError as e:
+        return validation_error_response(str(e))
+    quotation.client_id = client_id
+
+    # Validate discount
+    try:
+        discount_val = validate_discount(data.get('discount'), data.get('discount_type', 'flat'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     quotation.discount = discount_val
     quotation.discount_type = data.get('discount_type', 'flat')
     quotation.estimated_timeline = (data.get('estimated_timeline') or '').strip()
@@ -367,14 +395,18 @@ def edit_quotation(id):
     quotation.subject = (data.get('subject') or '').strip() or None
     quotation.delivery_address = (data.get('delivery_address') or '').strip() or None
     quotation.payment_terms = (data.get('payment_terms') or '').strip() or None
+
+    # Validate gst_percent
     try:
-        quotation.gst_percent = float(data.get('gst_percent', 0) or 0)
-    except (ValueError, TypeError):
-        quotation.gst_percent = 0.0
+        quotation.gst_percent = validate_gst_percent(data.get('gst_percent'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
+    # Validate valid_days
     try:
-        valid_days = int(data.get('valid_days', 15))
-    except (ValueError, TypeError):
-        valid_days = 15
+        valid_days = validate_valid_days(data.get('valid_days'))
+    except ValueError as e:
+        return validation_error_response(str(e))
     quotation.valid_until = quotation.date_created + timedelta(days=valid_days)
 
     QuotationItem.query.filter_by(quotation_id=quotation.id).delete()
@@ -391,6 +423,14 @@ def edit_quotation(id):
             item_descs = [''] * len(item_names)
         if not item_hsns or len(item_hsns) != len(item_names):
             item_hsns = [''] * len(item_names)
+
+    # Validate and build items
+    try:
+        item_names = [validate_item_name(n) for n in item_names]
+        item_qtys = [parse_item_quantity(q) for q in item_qtys]
+        item_rates = [parse_item_rate(r) for r in item_rates]
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     sub_total = _build_items(quotation, item_names, item_descs, item_qtys, item_rates, item_hsns, QuotationItem)
     quotation.sub_total = round(sub_total, 2)

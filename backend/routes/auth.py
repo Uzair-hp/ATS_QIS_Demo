@@ -2,11 +2,16 @@
 Authentication routes (JSON login/logout/me).
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def _csrf_token():
+    """Mint-once CSRF token for the SPA, stored in the session."""
+    return current_app.extensions['csrf_token']()
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -36,6 +41,13 @@ def logout():
 
 @auth_bp.route('/me')
 def me():
+    # Unauthenticated-safe: this is where the SPA picks up its CSRF token, so
+    # the token must be present in both branches.
+    token = _csrf_token()
     if current_user.is_authenticated:
-        return jsonify({'authenticated': True, 'user': {'id': current_user.id, 'username': current_user.username}})
-    return jsonify({'authenticated': False}), 200
+        return jsonify({
+            'authenticated': True,
+            'user': {'id': current_user.id, 'username': current_user.username},
+            'csrf_token': token,
+        })
+    return jsonify({'authenticated': False, 'csrf_token': token}), 200
