@@ -1,0 +1,9 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Werkzeug
+qrcode[pil]
+xhtml2pdf
+python-dotenv
+
+flask-cors
