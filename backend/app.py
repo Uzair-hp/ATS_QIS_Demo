@@ -7,8 +7,14 @@ import os
 from flask import Flask, jsonify, session, request
 from flask_cors import CORS
 from flask_login import LoginManager
+from werkzeug.exceptions import NotFound
 from models import db, now_ist, CompanyProfile, User
 from config import config_by_name
+
+# Built React SPA, served under /app. One level up from backend/.
+FRONTEND_DIST = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'dist'
+)
 
 
 def create_app():
@@ -66,6 +72,40 @@ def create_app():
     @app.route('/manifest.json')
     def serve_manifest():
         return send_from_directory(app.static_folder, 'manifest.json', mimetype='application/json')
+
+    # --- React SPA, served under /app ---
+    # Registered after the blueprints and the /sw.js + /manifest.json routes so
+    # those keep winning. Nothing is matched outside the /app/ prefix, so
+    # /api/* and /static/* cannot be intercepted here.
+
+    def spa_index():
+        """The SPA shell. Returned for every client-side route."""
+        try:
+            return send_from_directory(FRONTEND_DIST, 'index.html')
+        except NotFound:
+            return jsonify({
+                'error': 'Frontend build not found.',
+                'detail': f'Expected {FRONTEND_DIST}/index.html. Run "npm run build" in frontend/.',
+            }), 503
+
+    @app.route('/app/')
+    def serve_spa_root():
+        return spa_index()
+
+    @app.route('/app', defaults={'spa_path': ''})
+    @app.route('/app/<path:spa_path>')
+    def serve_spa(spa_path):
+        """Serve a real file from dist/ when it exists, else index.html.
+
+        Falling back to index.html is what makes client-side routes such as
+        /app/quotations/1 survive a refresh.
+        """
+        if spa_path:
+            try:
+                return send_from_directory(FRONTEND_DIST, spa_path)
+            except NotFound:
+                pass
+        return spa_index()
 
     @app.errorhandler(404)
     def not_found(e):

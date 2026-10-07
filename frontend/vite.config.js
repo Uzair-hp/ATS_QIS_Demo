@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // Flask serves the built SPA under /app (see backend/app.py serve_spa).
+  base: '/app/',
   server: {
     port: 3000,
     proxy: {
