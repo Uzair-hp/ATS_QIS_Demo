@@ -1,8 +1,11 @@
 # ATS Automation QIS — Work To Be Done
 
 > **Generated:** 2026-10-08  
+> **Last updated:** 2026-10-08 — all audit items complete  
 > **Project:** ATS Automation QIS (Quotation & Invoice System)  
-> **Purpose:** Complete audit of remaining work, problems found, and FORTIS HOSPITAL reference alignment
+> **Purpose:** Audit of remaining work, problems found, and FORTIS HOSPITAL reference alignment
+
+**Status: everything in this document is done except the manual QA in §3.7.** See §4.4 for the eight real defects found while executing it — they were not in the original audit.
 
 ---
 
@@ -16,22 +19,37 @@
 | **Database** | ✅ Complete | SQLite with auto-migrations, all columns present |
 | **Authentication** | ✅ Complete | Flask-Login + CSRF protection |
 | **Frontend Print Template** | ✅ Complete | Pixel-perfect FORTIS HOSPITAL alignment |
-| **Backend PDF Templates** | ❌ Needs Redesign | Old design, not aligned with FORTIS reference |
-| **Letterhead Feature** | ❌ Not Started | Missing entirely |
-| **CSV Exports** | ⚠️ Partial | Missing new fields (GST, HSN, subject, etc.) |
-| **Documentation** | ⚠️ Needs Updates | Discrepancies found |
-| **Testing** | ❌ Not Started | No automated tests, manual testing pending |
+| **Frontend Invoice Print** | ✅ Complete | Added 2026-10-08; `DocumentPrint` backs both types |
+| **Backend PDF Templates** | ✅ Redesigned | Rebuilt on shared `_pdf_base.html` macros, FORTIS palette |
+| **Letterhead Feature** | ✅ Complete | `GET /api/letterhead/download` |
+| **CSV Exports** | ✅ Complete | Full column set on all three exports |
+| **Documentation** | ✅ Updated | Password, paths, stack and structure corrected |
+| **Testing** | ⚠️ Automated done | 60 pytest + 53 vitest; visual QA still manual |
 
 ### Key Finding
 **The frontend "Print / Save as PDF" template is fully aligned with FORTIS HOSPITAL reference.**  
-**The backend "Download Branded PDF" templates are NOT aligned and need complete redesign.**
+**The backend "Download Branded PDF" templates have been rebuilt to match it**, subject to the engine limits below.
+
+### Engine constraint discovered while doing this work
+xhtml2pdf (0.2.21, with reportlab 5.0.1 + svglib 2.2.0 and `renderPM` absent) silently discards:
+
+| Input | Result |
+|---|---|
+| `<img src="data:image/png;base64,…">` | renders |
+| `<img src="data:image/svg+xml;base64,…">` | **dropped, no error** |
+| inline `<svg>` element | **dropped, no error** |
+| CSS `linear-gradient` | ignored |
+| `<style>` inside an `{% import %}`ed template | **dropped, no error** |
+| a class on a `<tr>`, or a second class on a `<td>` | **ignored, no error** |
+
+So all decorative artwork is pre-rendered to PNG by `backend/tools/render_assets.py`, and anything that must not vanish silently is styled inline. This is why the templates look the way they do — it is not a style choice.
 
 ---
 
 ## 2. FORTIS HOSPITAL Reference Alignment Check
 
 ### Reference File
-`F:\Brightlant-Work\ATS-QIS\FORTIS HOSPITAL_page-0001.jpg`
+`D:\Brightlant-Work\ATS-QIS\FORTIS HOSPITAL_page-0001.jpg` (the audit recorded the path as `F:\...` — wrong drive)
 
 ### Frontend Print Template — ✅ FULLY ALIGNED
 
@@ -61,325 +79,269 @@
 | **Watermark** | ✅ | ATS logo watermark at 3.8% opacity |
 | **Double Rules** | ✅ | 1px/1px/1px double border matching target |
 
-### Backend PDF Templates — ❌ NOT ALIGNED
+### Backend PDF Templates — were NOT ALIGNED, now rebuilt
 
-**Files:**
-- `backend/templates/invoices/pdf_template.html`
-- `backend/templates/quotations/pdf_template.html`
+Both templates were rebuilt on shared macros in `backend/templates/_pdf_base.html`. The problems this table listed are resolved:
 
-**Problems found:**
-| Issue | Severity | Details |
-|-------|----------|---------|
-| **Wrong Theme Color** | High | Uses `#007acc` (ATS blue) instead of FORTIS navy `#15578F` |
-| **No Swoosh Header** | High | Missing SVG swoosh decoration in header |
-| **Different Layout** | High | Table-based but different column widths and spacing |
-| **Missing Watermark** | Medium | No watermark element |
-| **Different Fonts** | Medium | Uses Helvetica/Arial instead of Calibri/Cambria |
-| **No Signature Lines** | Medium | Missing "Signature: ____" and "Person Name: ____" lines |
-| **Simpler Footer** | Medium | Footer bar exists but different design |
-| **Missing K/A Row** | Medium | No "K/A: Contact person" row in party details |
-| **Different Items Header** | Medium | Column headers differ from FORTIS layout |
+| Issue | Severity | Resolution |
+|-------|----------|------------|
+| **Wrong Theme Color** | High | ✅ `#007acc` → FORTIS navy `#15578F` / light `#3699D0` |
+| **No Swoosh Header** | High | ✅ as a pre-rendered PNG — inline SVG is dropped by the engine |
+| **Different Layout** | High | ✅ column positions taken from the same measured values |
+| **Missing Watermark** | Medium | ✅ `watermark.png`, 3.8% opacity |
+| **Different Fonts** | Medium | ⚠️ partially — Helvetica/Georgia, see §5 caveat |
+| **No Signature Lines** | Medium | ✅ "Signature: ____" and "Person Name: ____" |
+| **Simpler Footer** | Medium | ✅ three-box gradient footer, rendered as `footer.png` |
+| **Missing K/A Row** | Medium | ✅ "K/A: <contact>" |
+| **Different Items Header** | Medium | ✅ SR.NO / Particular / HSN NO / QTY / RATE / AMOUNT |
+| **No GST line on quotations** | *not in audit* | ✅ fixed — the total includes GST but it was never printed |
 
 ---
 
 ## 3. Detailed Work Breakdown
 
-### 3.1 Backend Invoice PDF Template Redesign
+### 3.1 Backend Invoice PDF Template Redesign — ✅ DONE
 
-**Priority:** HIGH  
-**File:** `backend/templates/invoices/pdf_template.html`  
-**Engine:** xhtml2pdf (limited CSS — must use `<table>` layouts)
+Shipped in commit `c810793`. Both PDF templates are now thin documents that `{% import %}` shared macros from `backend/templates/_pdf_base.html` and include `backend/templates/_pdf_style.html`.
 
-**What needs to be done:**
-1. Complete redesign to match FORTIS HOSPITAL layout
-2. Replace `#007acc` with FORTIS navy `#15578F` and light blue `#3699D0`
-3. Add SVG swoosh header decoration (inline SVG, no external files)
-4. Add watermark element (base64-encoded logo)
-5. Restructure party details table with exact column positions
-6. Add "K/A: Contact person" row
-7. Redesign items table with correct column widths and headers
-8. Redesign totals block (SUBTOTAL, GST@18%, Grand Total)
-9. Redesign bank details section with correct layout
-10. Redesign signature block with stamp area
-11. Add "Signature: ____" and "Person Name: ____" lines
-12. Redesign footer bar with three overlapping boxes
-13. Use Calibri/Cambria font family
-14. Add `@page` directive with correct margins
-15. Ensure all images are base64-embedded
-16. Test PDF generation for all edge cases (long names, many items, etc.)
+What was actually built, against the original 16-point list:
 
-**Dependencies:**
-- `backend/routes/invoices.py` — already passes `qr_base64`, `logo_base64`, `profile` to template
-- No backend code changes needed, only template HTML/CSS
+| # | Item | Outcome |
+|---|---|---|
+| 1 | FORTIS layout | ✅ |
+| 2 | `#007acc` → `#15578F` / `#3699D0` | ✅ |
+| 3 | Swoosh header | ✅ but as **pre-rendered PNG**, not inline SVG — the engine drops SVG silently. See the constraint table in §1. |
+| 4 | Watermark | ✅ rendered to `watermark.png` at 3.8% opacity |
+| 5 | Party details columns | ✅ |
+| 6 | "K/A:" row | ✅ |
+| 7 | Items table | ✅ SR.NO / Particular / HSN NO / QTY / RATE / AMOUNT |
+| 8 | Totals | ✅ SUBTOTAL, DISCOUNT, GST@18%, Grand Total, plus Advance/Balance Due |
+| 9 | Bank details | ✅ GSTIN, CompanyName, Bank, Branch, A/C, IFSC, MSME, UPI QR |
+| 10 | Signature + stamp area | ✅ |
+| 11 | "Signature: ____" lines | ✅ |
+| 12 | Three-box footer | ✅ as `footer.png` (gradients are ignored by the engine) |
+| 13 | Calibri/Cambria | ⚠️ Helvetica/Georgia — xhtml2pdf registers fonts by name and Calibri/Cambria were not reliably available; swap if you want them |
+| 14 | `@page` directive | ✅ three frames (header / content / footer) |
+| 15 | Images base64 | ✅ |
+| 16 | Edge-case tests | ✅ in `backend/tests/test_pdf.py` and `test_pdf_templates.py` |
 
----
-
-### 3.2 Backend Quotation PDF Template Redesign
-
-**Priority:** HIGH  
-**File:** `backend/templates/quotations/pdf_template.html`  
-**Engine:** xhtml2pdf
-
-**What needs to be done:**
-1. Same redesign as invoice template (3.1)
-2. Quotation-specific fields:
-   - Replace "INVOICE NO" with "QUOTATION NO"
-   - Add "Valid Until" row
-   - Add "Estimated Timeline" row
-   - Remove "Voucher No" (not applicable to quotations)
-   - Remove GSTIN from party details (client GST stays)
-3. Keep quotation-specific title "QUOTATION"
-4. Ensure quotation → invoice conversion still works
-
-**Dependencies:**
-- `backend/routes/quotations.py` — already passes `quotation`, `logo_base64`, `profile`
+**Deliberate deviation from this doc's original wording:** items 3 and 12 asked for inline SVG and CSS gradients. Neither survives xhtml2pdf. `backend/tools/render_assets.py` regenerates the three PNGs from the same coordinates and colours the browser sheet uses, so the two pipelines still look alike.
 
 ---
 
-### 3.3 Letterhead PDF Feature (NEW)
+### 3.2 Backend Quotation PDF Template Redesign — ✅ DONE
 
-**Priority:** MEDIUM  
-**Files:** New files needed
+**Status:** ✅ DONE, same commit as 3.1.
 
-**What needs to be created:**
-1. **New route file:** `backend/routes/letterhead.py`
-   - Blueprint with `/letterhead/download` route
-   - Requires login
-   - Renders blank letterhead with header/footer only
-2. **New template:** `backend/templates/letterhead/pdf_template.html`
-   - Same header/footer as redesigned invoice template
-   - Blank body (no client info, no items, no totals)
-3. **Register blueprint:** `backend/app.py`
-   - Add `from routes.letterhead import letterhead_bp`
-   - Add `app.register_blueprint(letterhead_bp, url_prefix='/api/letterhead')`
-4. **Frontend button:** Add "Download Letterhead" to Settings page or sidebar
+Quotation-specific fields, and how each original instruction landed:
 
-**Dependencies:**
-- Requires completed 3.1 (invoice template redesign) for shared header/footer
+| # | Item | Outcome |
+|---|---|---|
+| 1 | Same redesign as invoice | ✅ shares the macros |
+| 2a | "QUOTATION NO" label | ✅ |
+| 2b | "Valid Until" row | ✅ |
+| 2c | "Estimated Timeline" row | ✅ |
+| 2d | Remove "Voucher No" | ✅ it was never on the quotation — `Quotation` has no `voucher_number` column (only `Invoice` does) |
+| 2e | "Remove GSTIN from party details (client GST stays)" | ⚠️ **not done as written, and I think the instruction was wrong.** Client GSTIN *does* appear in the party/meta block. Reading it literally would strip a field the customer needs on a quotation. Company GSTIN is in the bank block instead. Flagging in case the original intent was different. |
+| 3 | Quotation title | ✅ the subject is used, falling back to "QUOTATION" |
+| 4 | Conversion still works | ✅ unchanged; covered by `test_calc_totals.py` |
+
+Also fixed while in there: the quotation PDF had **no GST line at all** even though `total_amount` includes GST, and no bank block, stamp or signature block.
 
 ---
 
-### 3.4 Frontend Invoice Print Page
+### 3.3 Letterhead PDF Feature — ✅ DONE
 
-**Priority:** MEDIUM  
-**Files:** New files needed
+**Shipped:** `backend/routes/letterhead.py`, `backend/templates/letterhead/pdf_template.html`, blueprint registered at `/api/letterhead`, "Blank Letterhead" link in the sidebar System section, and `backend/tests/test_letterhead.py` (7 tests).
 
-**What needs to be created:**
-1. **New page:** `frontend/src/pages/InvoicePrintPage.jsx`
-   - Mirror of `QuotationPrintPage.jsx` but for invoices
-   - Loads invoice data + settings
-   - Uses `mapInvoiceForPrint()` mapper
-2. **New mapper:** `frontend/src/lib/invoiceMapper.js`
-   - Maps invoice API response to print shape
-   - Similar to `quotationMapper.js` but invoice-specific
-3. **New component:** `frontend/src/components/InvoicePrint.jsx`
-   - Can reuse same print components (Header, PartyDetails, etc.)
-   - Or create wrapper that uses `QuotationPrint` with invoice data
-4. **Route:** Add `/invoices/:id/print` route in `frontend/src/App.jsx` or router
-5. **Button:** Add "Print / Save as PDF" button in `QuotationView.jsx` equivalent for invoices
+Renders the same swoosh header and footer as the other PDFs with 20 faint ruled writing lines and no client, items or totals. The header carries the company identity block as real text (name, tagline, address, contact, GSTIN) as well as the logo, so a recipient can select and quote the details.
 
-**Dependencies:**
-- Frontend print components already exist and are reusable
-- Invoice API already returns all needed data
+Two engine constraints shaped the implementation:
+- Ruled lines are table rows, not empty `<div>`s — xhtml2pdf collapses a zero-height div, so a div carrying only `border-bottom` renders nothing.
+- `letterhead_header()` is a separate macro from `header()` because the document-title cell is replaced by the identity block.
 
 ---
 
-### 3.5 CSV Export Updates
+### 3.4 Frontend Invoice Print Page — ✅ DONE
 
-**Priority:** MEDIUM  
-**Files:**
-- `backend/routes/invoices.py` — `export_invoices()` function
-- `backend/routes/quotations.py` — `export_quotations()` function
-- `backend/routes/clients.py` — client CSV export
+Shipped in commit `c810793`.
 
-**What needs to be added:**
+| # | Item | Outcome |
+|---|---|---|
+| 1 | `InvoicePrintPage.jsx` | ✅ |
+| 2 | `invoiceMapper.js` | ✅ with 12 tests |
+| 3 | Component | ✅ `DocumentPrint.jsx` — **not** a separate `InvoicePrint`, because the sheet is identical for both types and only the mapper differs (`docLabel`, `voucherNo`, title). One implementation, two routes. |
+| 4 | `/invoices/:id/print` route | ✅ |
+| 5 | "Print / Save as PDF" button | ✅ in `InvoiceView.jsx` |
 
-**Invoice CSV:**
-- Add `subject` column
-- Add `delivery_address` column
-- Add `payment_terms` column
-- Add `voucher_number` column
-- Add `gst_percent` column
-- Add `gst_amount` column
-- Add `ref_quotation_number` column
-
-**Quotation CSV:**
-- Add `subject` column
-- Add `delivery_address` column
-- Add `payment_terms` column
-- Add `gst_percent` column
-- Add `gst_amount` column
-- Add `estimated_timeline` column
-
-**Client CSV:**
-- Add `gst_number` column
-- Add `company_name` column
-
-**Dependencies:**
-- Backend routes already have access to all fields
-- Only export function changes needed
+Two things worth knowing: an invoice carries a `voucher_number` and a quotation does not, so that row is populated only for invoices. And `view_invoice` returns a wider `profile` block than `view_quotation` but still no MSME or stamp, so `/api/settings/` remains the source for those in both cases.
 
 ---
 
-### 3.6 Documentation Fixes
+### 3.5 CSV Export Updates — ✅ DONE
 
-**Priority:** LOW  
+Shipped in commit `c810793`, with `backend/tests/test_csv_exports.py` pinning the headers and the values.
+
+Every requested column was added, plus a few the original list missed — the models gained fields and the exports had fallen further behind than the audit recorded:
+
+| Export | Before | After |
+|---|---|---|
+| Invoice | 8 columns | 21 — adds Subject, Client Company, Voucher Number, Reference Quotation, Sub Total, Discount, Discount Type, Discount Amount, GST %, GST Amount, Payment Mode, Payment Terms, Delivery Address |
+| Quotation | 7 columns | 18 — adds Subject, Client Company, Sub Total, Discount, Discount Type, Discount Amount, GST %, GST Amount, Payment Terms, Delivery Address, Notes |
+| Client | 7 columns | 8 — adds GST Number (`company_name` was already present) |
+
+Note: `estimated_timeline` was already on the quotation export before this change.
+
+### 3.6 Documentation Fixes — ✅ DONE
+
 **Files:**
 - `QIS_USER_GUIDE.md`
 - `context_handover.md`
 
-**Problems found:**
+**Status:** ✅ DONE in commit `c810793`.
 
-**QIS_USER_GUIDE.md:**
-| Issue | Line | Current | Should Be |
-|-------|------|---------|-----------|
-| Wrong password | 154 | `ats2024` | `ats@2026` |
-| Wrong path | 70-71 | `c:\Users\offic\Desktop\ims\` | `D:\Brightlant-Work\ATS-QIS\` |
-| Wrong stack description | 7 | Python · Flask · SQLite · Bootstrap 5 · PWA | Python · Flask · SQLite · React · Vite · PWA |
-| Missing frontend info | 36-37 | "fully offline" | Still works offline but has React SPA |
-| Wrong project structure | 536-575 | Lists Jinja2 templates | Lists React SPA structure |
-| Missing print template info | 372-398 | Only mentions xhtml2pdf | Should mention both PDF methods |
+**QIS_USER_GUIDE.md** — every row fixed, plus several the audit missed:
 
-**context_handover.md:**
-| Issue | Line | Current | Should Be |
-|-------|------|---------|-----------|
-| Wrong path | 6 | `c:\Users\offic\Desktop\qis` | `D:\Brightlant-Work\ATS-QIS\` |
-| Wrong tech stack | 20 | Jinja2 templates, Bootstrap 5, vanilla JS | React 18, Vite 5, functional components |
-| Outdated structure | 41-87 | Lists Jinja2 template folders | Lists React SPA structure |
-| Missing frontend print system | Entire doc | No mention | Should document new print system |
-| Phase 4 status | 230 | "← START HERE" | Actually frontend print is done, backend needs work |
-| Work priority | 374-388 | Lists old template files | Should list current actual files |
+| Issue | Was | Now |
+|-------|-----|-----|
+| Wrong password | `ats2024` | `ats@2026` |
+| Wrong path | `c:\Users\offic\Desktop\ims\` | `D:\Brightlant-Work\ATS-QIS\` |
+| Wrong stack | Bootstrap 5 · PWA | + React 18, Vite 5, Axios, react-to-print |
+| Missing frontend info | "fully offline" | qualified — offline after `npm run build`, needs Node during dev |
+| Wrong project structure | listed Jinja2 templates | backend/ + frontend/ tree, notes templates are PDF-only |
+| Missing print template info | xhtml2pdf only | documents both methods and explains why they differ |
+| venv name | `venv\` | `.venv\` (matches the repo) |
+| Numbering prefixes | `BL-QT-*` / `BL-INV-*` | `ATS-QT-*` / `ATS-INV-*` |
+| Install steps | `pip install` only | added `npm install` and the two-process dev flow |
 
-**What needs to be done:**
-1. Fix password in QIS_USER_GUIDE
-2. Update all paths to current project location
-3. Update tech stack descriptions to reflect React SPA
-4. Add section about frontend print template system
-5. Document both PDF generation methods (backend xhtml2pdf + frontend react-to-print)
-6. Update project structure diagrams
-7. Revise Phase 4-6 work priorities to match current state
-8. Add note about FORTIS HOSPITAL alignment status
+**context_handover.md** — rewritten rather than patched. It still described a single Flask app with Jinja2 page templates, which was several phases out of date.
+
+| Issue | Resolution |
+|-------|------------|
+| Wrong path / tech stack / structure | fully rewritten |
+| Missing frontend print system | added a "Two independent print pipelines" section and the data-flow diagram |
+| "← START HERE" on Phase 4 | replaced with a completed-work log and a genuinely-open list |
+| Work priority list of template files | now lists the real files, including `tools/render_assets.py` |
+
+New sections added that did not exist before: the engine constraint table, the print data flow, how to regenerate the PDF assets, and a conventions list ("run the tests", "change one print pipeline, check the other", "never bundle a fallback stamp or logo").
 
 ---
 
-### 3.7 Testing & Quality Assurance
+### 3.7 Testing & Quality Assurance — ⚠️ AUTOMATED DONE, VISUAL QA OPEN
 
-**Priority:** HIGH  
-**No files to modify** — Manual testing only
+This doc originally said "manual testing only". That is no longer true: there is now a test suite.
 
-**What needs to be tested:**
+```bash
+cd backend  && pytest -q      # 60 tests
+cd frontend && npm test       # 53 tests
+```
 
-**Backend:**
-- [ ] All API endpoints return correct data
-- [ ] PDF generation works for invoices (after template redesign)
-- [ ] PDF generation works for quotations (after template redesign)
-- [ ] CSV exports contain all fields
-- [ ] GST calculations are correct
-- [ ] Quotation → Invoice conversion preserves all fields
-- [ ] Authentication and CSRF protection work
-- [ ] Database migrations run without errors
+**Covered by automation (✅):**
 
-**Frontend:**
-- [ ] All pages load correctly
-- [ ] Print template aligns with FORTIS HOSPITAL (visual check)
-- [ ] Browser print produces correct PDF
-- [ ] All forms submit correctly
-- [ ] Validation errors display properly
-- [ ] Toast notifications work
-- [ ] Dark mode works (if applicable)
-- [ ] Responsive layout works
+| Area | Tests | Notes |
+|---|---|---|
+| GST / totals maths | `test_calc_totals.py`, `quotation.test.js` | fractional rupees, zero rate, discount clamping, and parity between the two implementations |
+| Quotation & invoice PDFs | `test_pdf.py`, `test_pdf_templates.py` | valid PDF, content present, paise survive formatting, artwork embedded, styling actually applied, headings not double-escaped |
+| Letterhead PDF | `test_letterhead.py` | artwork, company details, no leaked client data, survives a bare profile |
+| PDF assets | `test_pdf_assets.py` | all PNGs exist, are valid, are full-bleed width |
+| CSV exports | `test_csv_exports.py` | headers and values for all three exports |
+| Stamp upload | `test_settings.py` | magic-byte sniffing, 2 MB cap, rejects non-images |
+| Mappers | `quotationMapper.test.js`, `invoiceMapper.test.js` | API payload → sheet shape, empty/missing input |
 
-**Integration:**
-- [ ] Frontend can communicate with backend
-- [ ] Print page loads quotation/invoice data correctly
-- [ ] Settings page updates reflect in PDFs
-- [ ] Logo and stamp images display in PDFs
+Three of these exist because the failure was **silent** — the PDF rendered successfully with no styling, no artwork, or a missing tax line. Worth keeping in mind when adding more.
 
----
+**Still needs a human (⚠️):**
 
-## 4. Problems Found (Non-Work Items)
+- [ ] Print sheet still aligns with FORTIS HOSPITAL by eye
+- [ ] Browser print produces a correct PDF (Chrome print dialog, multi-page)
+- [ ] A quotation with ~6 items and a discount paginates cleanly
+- [ ] Dark mode
+- [ ] Responsive layout
+- [ ] Form validation errors, toast notifications
+- [ ] Quotation → invoice conversion in the UI
+- [ ] Uploads a JPEG stamp end-to-end and it appears in both print paths
 
-### 4.1 Critical Issues
-
-| # | Problem | Impact | Location |
-|---|---------|--------|----------|
-| 1 | Backend PDF templates don't match FORTIS design | Brand inconsistency, unprofessional output | `backend/templates/invoices/pdf_template.html`, `backend/templates/quotations/pdf_template.html` |
-| 2 | No letterhead PDF feature | Users can't download blank letterhead | Missing entirely |
-| 3 | No invoice print page | Invoices can't use the new FORTIS-aligned template | Missing `InvoicePrintPage.jsx` |
-
-### 4.2 Medium Issues
-
-| # | Problem | Impact | Location |
-|---|---------|--------|----------|
-| 4 | CSV exports missing new fields | Incomplete data export | `backend/routes/invoices.py`, `backend/routes/quotations.py`, `backend/routes/clients.py` |
-| 5 | Documentation has wrong password | Users can't login using guide | `QIS_USER_GUIDE.md:154` |
-| 6 | Documentation has wrong paths | Confusion for developers | `QIS_USER_GUIDE.md`, `context_handover.md` |
-| 7 | Documentation doesn't mention React SPA | Outdated architecture info | `QIS_USER_GUIDE.md`, `context_handover.md` |
-
-### 4.3 Low Issues
-
-| # | Problem | Impact | Location |
-|---|---------|--------|----------|
-| 8 | No automated tests | Manual testing only, regression risk | Entire project |
-| 9 | Frontend print only for quotations | Invoices use old backend template | `frontend/src/pages/` |
-| 10 | Context handover outdated | Misleading for future developers | `context_handover.md` |
+The last one is worth doing first: it is the only place the two pipelines read the same blob differently.
 
 ---
 
-## 5. Work Priority Matrix
+## 4. Problems Found — All Resolved
 
-| Work Item | Priority | Effort | Dependencies |
-|-----------|----------|--------|--------------|
-| 3.1 Backend Invoice PDF Redesign | HIGH | HIGH | None |
-| 3.2 Backend Quotation PDF Redesign | HIGH | HIGH | 3.1 (shared header/footer) |
-| 3.7 Testing & QA | HIGH | MEDIUM | 3.1, 3.2 |
-| 3.5 CSV Export Updates | MEDIUM | LOW | None |
-| 3.4 Frontend Invoice Print Page | MEDIUM | MEDIUM | None (reuses existing components) |
-| 3.3 Letterhead PDF Feature | MEDIUM | LOW | 3.1 |
-| 3.6 Documentation Fixes | LOW | LOW | None |
+The three items this audit classified as "Critical" were not the ones that mattered most, and they were all fixed. Two larger problems found while doing the work are recorded too, since neither appeared in the original audit.
 
----
+### 4.1 Was Critical — now fixed
 
-## 6. Recommended Execution Order
+| # | Problem | Fix |
+|---|---------|-----|
+| 1 | Backend PDFs didn't match FORTIS design | Rebuilt on shared macros; §3.1 |
+| 2 | No letterhead PDF feature | `GET /api/letterhead/download`; §3.3 |
+| 3 | No invoice print page | `InvoicePrintPage.jsx`; §3.4 |
 
-### Phase 1: Backend PDF Redesign (Critical)
-1. **Task 3.1** — Redesign backend invoice PDF template
-2. **Task 3.2** — Redesign backend quotation PDF template
-3. **Task 3.3** — Create letterhead PDF feature
+### 4.2 Was Medium — now fixed
 
-### Phase 2: Frontend Improvements
-4. **Task 3.4** — Create frontend invoice print page
+| # | Problem | Fix |
+|---|---------|-----|
+| 4 | CSV exports missing new fields | §3.5 |
+| 5 | Documentation had the wrong password | §3.6 |
+| 6 | Documentation had wrong paths | §3.6 |
+| 7 | Documentation didn't mention the React SPA | §3.6 |
 
-### Phase 3: Data & Export
-5. **Task 3.5** — Update CSV exports with new fields
+### 4.3 Was Low — now fixed
 
-### Phase 4: Documentation
-6. **Task 3.6** — Fix all documentation discrepancies
+| # | Problem | Fix |
+|---|---------|-----|
+| 8 | No automated tests | 113 tests; §3.7 |
+| 9 | Frontend print only for quotations | §3.4 |
+| 10 | Context handover outdated | §3.6 |
 
-### Phase 5: Testing
-7. **Task 3.7** — Complete manual testing of all features
+### 4.4 Found during this work — not in the original audit
 
----
+These were the actual defects. All fixed in `c810793`.
 
-## 7. Alignment Score Summary
+| # | Problem | Impact | Why the audit missed it |
+|---|---------|--------|-------------------------|
+| 11 | **Print sheet totals disagreed with the stored record.** `computeTotals` rounded the item sum to whole rupees before discount and GST; the backend uses the 2dp sum | wrong grand total on every quotation with fractional rates | the audit scored the template on visual fidelity and never checked the maths |
+| 12 | **Stamp leak.** `SignatureBlock` fell back to a checked-in ATS stamp | any company profile without an upload would print ATS Automation's seal | visual check only exercises the default profile, which has no stamp |
+| 13 | **Mock data on a live route.** `sampleQuotation.js` held a real-looking GSTIN and bank A/C and was the default on `/app/quotations/print` | live-looking client data in the repo | the route had no UI entry point, so it was never visited |
+| 14 | **Quotation PDF printed no GST line** despite `total_amount` including it | customer cannot see the tax split | nobody compared the PDF against the stored totals |
+| 15 | **Discount spilled to a second page.** A4 budget was ~1.3 mm short, and the two discount rows added ~10 mm | near-blank page 2 carrying only the footer | only appears with a discount, which the reference document does not have |
+| 16 | **Broken "Back" link.** Double `/app` prefix from the router basename | dead link in the print page's error state | error state is hard to reach |
+| 17 | **Unvalidated stamp upload.** Whole file read into a `Text` column, no MIME or size check | unbounded row growth; arbitrary bytes embedded in a data URI | no input was a valid test case |
+| 18 | **PDF artwork was unreachable.** The doc asked for inline SVG; xhtml2pdf drops it silently | a blank header, with no error | never tried |
 
-| Template | FORTIS Alignment | Status |
-|----------|------------------|--------|
-| Frontend Print (Quotation) | 100% | ✅ Production Ready |
-| Frontend Print (Invoice) | N/A | ❌ Not Created Yet |
-| Backend PDF (Invoice) | ~30% | ❌ Needs Complete Redesign |
-| Backend PDF (Quotation) | ~30% | ❌ Needs Complete Redesign |
-
----
-
-## 8. Notes
-
-- The frontend print template system is **already complete and production-ready** for quotations
-- The backend PDF templates are **legacy** and need to be brought up to FORTIS standard
-- All database migrations are already done (Phases 1-3 complete per context_handover)
-- The React SPA architecture is stable and functional
-- No breaking changes are needed — all work is additive or template-only
+Items 14 and 18 are the ones I would flag hardest. Both render "successfully" while producing wrong output — which is exactly why they only surfaced under an actual test suite and a rendered-page check.
 
 ---
 
-*End of work_to_be_done.md*
+## 5. Alignment Score Summary
+
+| Document | Before | Now |
+|----------|--------|-----|
+| Frontend print — quotation | 100% | 100% ✅ |
+| Frontend print — invoice | n/a | ✅ built |
+| Backend PDF — invoice | ~30% | ✅ FORTIS palette, all fields |
+| Backend PDF — quotation | ~30% | ✅ FORTIS palette, all fields |
+| Letterhead PDF | n/a | ✅ |
+
+Caveat on the two backend scores: they now match FORTIS on palette, layout and content, but not on typography. xhtml2pdf registers fonts by name and Calibri/Cambria were not reliably available, so those templates use Helvetica/Georgia. The browser sheet is unaffected — Chrome has the real fonts.
+
+---
+
+## 6. What Is Still Open
+
+Only manual QA — the full list is in §3.7. Nothing here needs code.
+
+Short version: the automated suite covers totals, PDF validity and content, CSV headers, stamp validation and the mappers. It does not check how anything *looks*. Those checks need eyes on the page.
+
+---
+
+## 7. Notes
+
+- Two print pipelines exist and are **not** kept in sync automatically. Changing one means checking the other. This is the single most important thing to know about the codebase.
+- `python -m tools.render_assets` regenerates the PDF artwork. Run it if you change the swoosh, footer or watermark.
+- No bundled fallback stamp or logo for company-specific fields. An unchecked default would put one company's branding on another's documents.
+- Nothing in this round was a breaking change: additive routes and fields, template-only PDF work, and one schema addition (`company_profile.stamp_mime`) that auto-migrates.
+
+---
+
+*Updated 2026-10-08. All items from the original audit are complete; §3.7 lists the remaining manual QA.*

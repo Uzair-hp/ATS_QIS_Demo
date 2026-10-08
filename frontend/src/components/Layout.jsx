@@ -97,6 +97,13 @@ export default function Layout({ title, breadcrumb, children }) {
             <i className="bi bi-gear-fill"></i>
             <span className="nav-text">Company Settings</span>
           </NavLink>
+          {/* A file download rather than a route, so an <a>, not a NavLink.
+              Same-origin GET, so the session cookie authenticates it and the
+              browser handles the Content-Disposition download. */}
+          <a href="/api/letterhead/download" className="nav-link">
+            <i className="bi bi-file-earmark-richtext"></i>
+            <span className="nav-text">Blank Letterhead</span>
+          </a>
         </div>
 
         <div className="sidebar-footer">

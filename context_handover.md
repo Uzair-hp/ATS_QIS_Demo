@@ -51,10 +51,14 @@ This is the single most important thing to know before changing print code.
 
 | | Browser print sheet | Server-rendered PDF |
 |---|---|---|
-| Trigger | "Print / Save as PDF" on a quotation | "Download PDF" |
-| Layout | `frontend/src/styles/print.css` + `components/print/*` | `backend/templates/*/pdf_template.html` |
+| Trigger | "Print / Save as PDF" on a quotation or invoice | "Download PDF" |
+| Layout | `frontend/src/styles/print.css` + `components/print/*` | `templates/_pdf_base.html` + `_pdf_style.html` |
 | Renderer | Chrome, via `react-to-print` | `xhtml2pdf` |
-| Fidelity | Matches FORTIS HOSPITAL reference | Plainer; a different design |
+| Fidelity | Matches FORTIS HOSPITAL reference closely | Same palette and layout; Helvetica/Georgia fonts |
+
+Both render the same artwork: the browser sheet's SVG swoosh and CSS gradients
+are pre-rendered to PNG by `backend/tools/render_assets.py` for the server path,
+because xhtml2pdf drops both.
 
 They are **not** kept in sync automatically. If you change one, check the other.
 
@@ -78,15 +82,27 @@ D:\Brightlant-Work\ATS-QIS\
 │   │   ├── invoices.py             Invoice CRUD, PDF, UPI QR, CSV, convert
 │   │   ├── quotations.py           Quotation CRUD, PDF, CSV, duplicate, convert
 │   │   ├── settings.py             Company profile + stamp upload validation
+│   │   ├── letterhead.py           Blank letterhead PDF download
+│   │   ├── pdf_assets.py           Cached base64 for logo/swoosh/footer
 │   │   └── validation.py           Shared input validation
 │   ├── templates/                  PDF templates ONLY — no page templates
+│   │   ├── _pdf_base.html          Shared macros (header, footer, bank, sig)
+│   │   ├── _pdf_style.html         Shared stylesheet (must be included, not
+│   │   │                           imported — see §7.1)
 │   │   ├── invoices/pdf_template.html
-│   │   └── quotations/pdf_template.html
-│   ├── static/                     logo.png, PWA manifest + service worker
-│   ├── tests/                      pytest suite
+│   │   ├── quotations/pdf_template.html
+│   │   └── letterhead/pdf_template.html
+│   ├── tools/
+│   │   └── render_assets.py        Renders the decorative PNGs
+│   ├── static/img/                 logo.png, swoosh.png, footer.png,
+│   │                               watermark.png, PWA icons
+│   ├── tests/                      pytest suite (60 tests)
 │   │   ├── conftest.py             app/client/login/sample fixtures
 │   │   ├── test_calc_totals.py     totals maths
 │   │   ├── test_pdf.py             PDF endpoint smoke tests
+│   │   ├── test_pdf_templates.py   styling, escaping, artwork
+│   │   ├── test_pdf_assets.py      decorative PNGs exist and are valid
+│   │   ├── test_letterhead.py      blank letterhead PDF
 │   │   ├── test_csv_exports.py     export headers and values
 │   │   └── test_settings.py        stamp upload validation
 │   └── instance/ats.db             SQLite database (auto-created)
@@ -108,7 +124,8 @@ D:\Brightlant-Work\ATS-QIS\
 │       │   ├── quotation.js        Totals maths + normaliser + formatters
 │       │   ├── quotationMapper.js  Quotation payload -> sheet shape
 │       │   ├── invoiceMapper.js    Invoice payload -> sheet shape
-│       │   └── geometry.js         Measured column positions from FORTIS
+│       │   ├── geometry.js         Measured column positions from FORTIS
+│       │   └── __tests__/          vitest suite (53 tests)
 │       ├── pages/                  One file per screen, incl.
 │       │                          QuotationPrintPage / InvoicePrintPage
 │       └── styles/
@@ -296,63 +313,89 @@ Separate from the app theme. Sampled from the FORTIS reference:
 - Flow-based pagination with a repeating `<thead>` and fixed page chrome
 
 ### Phase 6: Correctness, tests and exports ✅
+- Backend PDF templates rebuilt on shared macros; decorative PNG artwork
+- Blank letterhead PDF (`GET /api/letterhead/download`)
 - Invoice print page added; `DocumentPrint.jsx` backs both document types
 - Backend totals now authoritative for the print sheet (no rounding divergence)
 - Discount rows use explicit classes, not `:nth-child`
 - Stamp upload validated (magic bytes sniffed, 2 MB cap) and no bundled
   fallback stamp, so one company's seal cannot print on another's quote
-- 40 pytest + 53 vitest tests
+- 60 pytest + 53 vitest tests
 - CSV exports extended to the full column set
 
 ---
 
-## 7. REMAINING WORK
+## 7. PDF Engine Constraints — Why The Templates Look Like This
 
-Tracked in `work_to_be_done.md`. In priority order:
+Recorded here because every one of these fails **silently**. xhtml2pdf returns
+success and renders a document that is quietly missing something.
 
-### 7.1 Backend PDF redesign (server-rendered PDFs)
+Verified against this venv: xhtml2pdf 0.2.21, reportlab 5.0.1, svglib 2.2.0,
+`renderPM` **not installed**.
 
-`backend/templates/invoices/pdf_template.html` and
-`quotations/pdf_template.html` still use the older ATS-blue design, not the
-FORTIS layout. The quotation template now carries the same *content* as the
-invoice (GST line, bank block, stamp, signature, subject/terms), so only the
-visual design is outstanding.
-
-**Hard constraint, verified against this venv (xhtml2pdf 0.2.21 +
-reportlab 5.0.1 + svglib 2.2.0, `renderPM` not installed):**
-
-| Input | Images in output PDF |
+| Input | Result |
 |---|---|
-| `<img src="data:image/png;base64,…">` | **1** ✅ |
-| `<img src="data:image/svg+xml;base64,…">` | **0** ❌ silently dropped |
-| inline `<svg>` element | **0** ❌ silently dropped |
+| `<img src="data:image/png;base64,…">` | renders |
+| `<img src="data:image/svg+xml;base64,…">` | **dropped, no error** |
+| inline `<svg>` element | **dropped, no error** |
 | CSS `linear-gradient` | ignored |
+| `<style>` inside an `{% import %}`ed template | **dropped, no error** |
+| a class on a `<tr>` | **ignored, no error** |
+| a second class on a `<td>` | **ignored, no error** |
+| a zero-height `<div>` carrying only `border-bottom` | collapses to nothing |
 
-So the swoosh, the three-box footer gradient and the watermark **must be
-pre-rendered PNGs embedded as base64**. Inline SVG produces a blank header and
-no error, which is the trap an earlier note in this document fell into. The
-browser print sheet is unaffected — Chrome renders both SVG and gradients.
+Consequences, each of which looks like an arbitrary choice otherwise:
 
-### 7.2 ~~Frontend invoice print page~~ ✅ Done
+- The swoosh, the three-box footer and the watermark are **pre-rendered PNGs**
+  from `tools/render_assets.py`. Regenerate with
+  `python -m tools.render_assets` after changing any of them.
+- The stylesheet lives in `_pdf_style.html` and is `{% include %}`d, never
+  imported. `{% import %}` exposes macros but does not render the imported body.
+- The grand-total fill is stated inline via `grand_cell()`, not via a class.
+- Letterhead writing lines are table rows, not divs.
+- Anything that must not vanish is asserted in `tests/test_pdf_templates.py`.
+
+The browser print sheet is unaffected — Chrome renders SVG and gradients.
+
+---
+
+## 8. Print Feature Status
+
+### 8.1 Backend PDF redesign ✅ Done
+
+Both templates `{% import %}` shared macros from `_pdf_base.html` and
+`{% include %}` `_pdf_style.html`. The quotation PDF had no GST line, bank
+block, stamp or signature block; all four are now present.
+
+### 8.2 Frontend invoice print page ✅ Done
 
 `InvoicePrintPage.jsx` + `invoiceMapper.js` are in place, and `InvoiceView.jsx`
 carries a "Print / Save as PDF" link. `DocumentPrint.jsx` now backs both routes,
 so the layout has one implementation rather than two.
 
-### 7.3 Blank letterhead PDF
+### 8.3 Blank letterhead PDF ✅ Done
 
-New `routes/letterhead.py` + `templates/letterhead/pdf_template.html`, sharing
-the header/footer from 7.1.
+`GET /api/letterhead/download` — `routes/letterhead.py` plus
+`templates/letterhead/pdf_template.html`, sharing the header/footer from 7.1.
+Linked from the sidebar under System.
 
-### 7.4 Manual QA sweep
+### 8.4 Manual QA sweep — still open
 
 The checklist in `work_to_be_done.md` §3.7. The automated tests cover totals,
 PDF validity, CSV headers and stamp validation; visual alignment to FORTIS and
 dark mode / responsive behaviour still need a human.
 
+Two things worth a look first:
+
+- **Fonts in the server PDFs.** They use Helvetica/Georgia, not Calibri/Cambria.
+  xhtml2pdf registers fonts by name and the originals were not reliably
+  available. The browser sheet is unaffected.
+- **A JPEG stamp, end-to-end.** It is the only asset both print pipelines read
+  differently, so it is the most likely place for them to disagree.
+
 ---
 
-## 8. Reference Design Description
+## 9. Reference Design Description
 
 `FORTIS HOSPITAL_page-0001.jpg` in the project root is the reference the
 quotation print sheet is measured against. Key elements:
@@ -370,7 +413,7 @@ quotation print sheet is measured against. Key elements:
 
 ---
 
-## 9. Key ATS Company Details (reference values)
+## 10. Key ATS Company Details (reference values)
 
 | Field | Value |
 |---|---|
@@ -392,10 +435,10 @@ quotation print sheet is measured against. Key elements:
 
 ---
 
-## 10. Conventions & Rules
+## 11. Conventions & Rules
 
 1. **One task at a time** — complete one task before moving to the next
-2. **Decorative assets are raster, not SVG, in server PDFs** — see §7.1
+2. **Decorative assets are raster, not SVG, in server PDFs** — see §7
 3. **Hinglish communication** — user communicates in Hindi-English mix
 4. **Do what is best** — user trusts developer judgment for technical decisions
 5. **Database name** — `ats.db`, at `backend/instance/ats.db`
@@ -403,10 +446,12 @@ quotation print sheet is measured against. Key elements:
 7. **Run the tests** — `pytest` and `npm test` before calling work done
 8. **Both print pipelines exist** — change one, check the other
 9. **Never bundle a fallback stamp or logo for company-specific fields**
+10. **Render the PDF and look at it** — xhtml2pdf fails silently, so a passing
+    test is not proof the output is right
 
 ---
 
-## 11. How to Verify Changes
+## 12. How to Verify Changes
 
 ```powershell
 # Terminal 1
