@@ -1,0 +1,14 @@
+# Test-only dependencies.
+#
+# Kept separate from requirements.txt so a production install (PythonAnywhere,
+# or any host) does not carry pytest. Install with:
+#
+#     pip install -r requirements-dev.txt
+#
+# requirements.txt pins the runtime packages loosely on purpose: PA resolves
+# them against whatever Python version the web app uses, and hard pins there
+# tend to fail on a platform you do not control.
+
+-r requirements.txt
+
+pytest

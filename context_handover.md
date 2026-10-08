@@ -73,8 +73,9 @@ D:\Brightlant-Work\ATS-QIS\
 │   ├── app.py                      App factory, migrations, SPA serving under /app
 │   ├── config.py                   Config (dev / production), DB path
 │   ├── models.py                   SQLAlchemy models
-│   ├── wsgi.py                     WSGI entry point
-│   ├── requirements.txt
+│   ├── wsgi.py                     WSGI entry point (PA imports this)
+│   ├── requirements.txt            Runtime deps only
+│   ├── requirements-dev.txt        Adds pytest; not installed in production
 │   ├── routes/
 │   │   ├── auth.py                 Login/logout/me, CSRF token issue
 │   │   ├── dashboard.py            Dashboard stats
@@ -133,6 +134,12 @@ D:\Brightlant-Work\ATS-QIS\
 │           ├── style.css           App design system
 │           └── print.css           A4 quotation sheet (mm-positioned)
 │
+├── deploy/                          PythonAnywhere deployment
+│   ├── README.md                    Step-by-step + free-tier limits
+│   ├── pythonanywhere_wsgi.py       Paste into the Web tab's WSGI file
+│   └── setup.sh                     Idempotent Bash-console setup
+│
+├── AGENTS.md                        Rules for AI agents (push target, traps)
 ├── ats_logo.png                     Original ATS logo (high-res source)
 ├── FORTIS HOSPITAL_page-0001.jpg   ⭐ REFERENCE DESIGN for the print sheet
 ├── QIS_USER_GUIDE.md
@@ -475,6 +482,27 @@ Run the suites:
 cd backend  && pytest -q
 cd frontend && npm test
 ```
+
+---
+
+## 13. Deploying
+
+`deploy/README.md` has the full PythonAnywhere procedure. The parts that matter
+when changing application code:
+
+- **Production requires `SECRET_KEY`.** `create_app()` raises at import if it is
+  missing while `FLASK_ENV=production`. That takes the whole worker down, so the
+  WSGI file checks it first with a clearer message.
+- **`ProxyFix` is active in production only.** PythonAnywhere terminates TLS, so
+  without it Flask believes every request is plain HTTP and
+  `SESSION_COOKIE_SECURE` never matches — the session cookie is dropped and
+  every request after login fails the CSRF check with a 403.
+- **`GET /api/health`** is a public liveness probe. It reports whether the
+  frontend bundle is present, which is the failure mode a bad deploy produces.
+- **Static file mappings matter on the free tier** — one web worker, and the SPA
+  assets would otherwise occupy it on every page load.
+- **Schema changes need no manual step.** `db.create_all()` and the migrations
+  run inside `create_app()`, so a reload applies them.
 
 ---
 

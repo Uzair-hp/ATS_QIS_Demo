@@ -55,11 +55,27 @@ def create_app():
 
     db.init_app(app)
 
-    # CORS: allow the React dev server to talk to the API with cookies
-    CORS(app, origins=[
+    # Behind a reverse proxy (PythonAnywhere, nginx, a load balancer) Flask
+    # otherwise believes every request arrived over plain HTTP. That breaks
+    # SESSION_COOKIE_SECURE and makes Flask build http:// URLs on an https://
+    # site, which the browser then blocks as mixed content.
+    #
+    # One proxy hop is the default. Raise it only if you front the app with
+    # more than one - each extra hop lets a client spoof X-Forwarded-For.
+    if env == 'production':
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    # CORS: the React dev server on localhost during development. In production
+    # the SPA is served from the same origin as the API, so no cross-origin
+    # request is made and an extra allowed origin is not needed. ALLOWED_ORIGINS
+    # is for a split deployment where the SPA lives on another host.
+    allowed_origins = os.environ.get('ALLOWED_ORIGINS', '')
+    origins = [o.strip() for o in allowed_origins.split(',') if o.strip()] or [
         'http://localhost:3000', 'http://127.0.0.1:3000',
         'http://localhost:5173', 'http://127.0.0.1:5173',
-    ], supports_credentials=True)
+    ]
+    CORS(app, origins=origins, supports_credentials=True)
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -188,6 +204,19 @@ def create_app():
             except NotFound:
                 pass
         return spa_index()
+
+    @app.route('/api/health')
+    def health():
+        """Liveness probe. Public, so a platform can check the app is up.
+
+        Deliberately says nothing about the database contents - it reports
+        whether the process is serving, not what is in it.
+        """
+        return jsonify({
+            'status': 'ok',
+            'frontend': 'built' if os.path.exists(
+                os.path.join(FRONTEND_DIST, 'index.html')) else 'missing',
+        })
 
     @app.errorhandler(404)
     def not_found(e):

@@ -1,12 +1,17 @@
+# Runtime dependencies for the Flask API.
+#
+# Test-only packages live in requirements-dev.txt so a production host does not
+# have to install pytest.
+#
+# Versions are left unpinned deliberately: PythonAnywhere resolves these against
+# whichever interpreter the web app uses, and hard pins fail on a platform you do
+# not control. If you self-host, pin here and keep a lockfile.
+
 Flask
 Flask-SQLAlchemy
 Flask-Login
 Werkzeug
+flask-cors
 qrcode[pil]
 xhtml2pdf
 python-dotenv
-
-flask-cors
-
-# tests
-pytest

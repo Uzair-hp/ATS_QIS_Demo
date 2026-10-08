@@ -37,10 +37,12 @@ git remote add demo https://github.com/Uzair-hp/ATS_QIS_Demo.git
 
 - Run both suites. A change is not done until they pass.
   ```bash
-  cd backend  && pytest -q      # 60 tests
+  cd backend  && pytest -q      # 71 tests
   cd frontend && npm test       # 53 tests
   cd frontend && npm run build
   ```
+- `backend/requirements.txt` is runtime-only. Test deps are in
+  `requirements-dev.txt`, so a production host never installs pytest.
 - Never commit `.env`, `*.db`, or anything under `.kilo/`.
 - Stage deliberately (`git add <paths>`) rather than `git add -A`, so you can
   see what you are about to include. Check `git status` before committing.
@@ -58,6 +60,8 @@ cd frontend; npm run dev
 
 Single process: `npm run build` in `frontend/`, then `python app.py` in
 `backend/` — Flask serves `frontend/dist` under `/app`.
+
+Production hosts use `backend/wsgi.py` instead — see `deploy/README.md`.
 
 ## 4. Architecture you must not break
 
@@ -143,6 +147,7 @@ value is absent, render the slot empty.
 
 - `context_handover.md` — full architecture, data flow, engine constraints.
   Read this if you have not already.
+- `deploy/README.md` — PythonAnywhere deployment, free-tier limits, troubleshooting.
 - `work_to_be_done.md` — what is done, what is open. The open items are all
   visual QA in §3.7.
 - `FORTIS HOSPITAL_page-0001.jpg` — the reference design the print sheet is

@@ -174,9 +174,31 @@ cd frontend && npm test       # 41 tests: print-sheet totals and mapping
 
 ### Production (Hosted)
 
-The app can be deployed to your preferred hosting platform. Build the frontend
-first (`npm run build`), point the WSGI server at `backend/wsgi.py`, and set
-`SECRET_KEY` and `FLASK_ENV=production` in the environment.
+Build the frontend first (`npm run build`), point the WSGI server at
+`backend/wsgi.py`, and set `SECRET_KEY` and `FLASK_ENV=production` in the
+environment.
+
+**PythonAnywhere** is set up in detail — see `deploy/README.md`. The short
+version:
+
+```bash
+# on PythonAnywhere, from a Bash console
+git clone https://github.com/brightlant223/ats-qis.git ~/ATS-QIS
+bash ~/ATS-QIS/deploy/setup.sh
+```
+
+Then in the Web tab: add a **Manual configuration** web app using the
+`ats-qis` virtualenv, paste `deploy/pythonanywhere_wsgi.py` into the WSGI
+configuration file, add the two static-file mappings it documents, and reload.
+
+Check it with:
+
+```
+https://<username>.pythonanywhere.com/api/health
+```
+
+Note the free tier's limits before putting real client data on it — the web app
+expires after one month unless you log in, and there is one web worker.
 
 ---
 
