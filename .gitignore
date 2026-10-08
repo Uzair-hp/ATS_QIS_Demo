@@ -124,3 +124,10 @@ DB_OPERATIONS.md
 *.workbox.js
 # Frontend source modules (must not be caught by the Python 'lib/' rule above)
 !frontend/src/lib/
+
+# The built frontend bundle IS committed, so PythonAnywhere hosts without
+# needing Node.js (not enabled on every account). deploy/setup.sh prefers a
+# local `npm run build` when npm exists and falls back to this otherwise.
+# Rebuild and commit it whenever frontend/src changes:
+#     cd frontend && npm run build && git add -f dist && git commit
+!frontend/dist/

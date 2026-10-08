@@ -8,7 +8,14 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+
+# dist IS committed, deliberately. PythonAnywhere does not enable Node.js on
+# every account, so the deployment uses the checked-in bundle when npm is
+# unavailable. See deploy/setup.sh. Rebuild it with:
+#     npm run build && git add -f dist
+!dist
+!dist/**
+
 dist-ssr
 *.local
 
