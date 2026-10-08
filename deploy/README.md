@@ -1,217 +1,164 @@
 # PythonAnywhere deployment
 
-Deploying ATS QIS to PythonAnywhere. The app is a Flask JSON API that also
-serves the built React SPA, so both halves have to be set up.
+The app is a Flask JSON API that serves the built React SPA. Two Bash commands,
+two Web-tab clicks.
 
-**Before you start:** the free tier is a real constraint, not a formality. See
-[Free tier limits](#free-tier-limits) — if this will hold real client data, a
-paid plan or a different host is the better call.
+```bash
+git clone https://github.com/Uzair-hp/ATS_QIS_Demo.git ATS-QIS
+bash ~/ATS-QIS/deploy/setup.sh
+```
 
-**About 15 minutes.** Steps 1–3 are copy-paste in a Bash console; steps 4–5 are
-clicks in the Web tab. The whole path was verified against a clean clone of the
-demo repo — see [Verified](#verified-what-was-tested).
+Then in the Web tab: add a Manual-configuration web app pointing at the
+`ats-qis` virtualenv, paste `deploy/pythonanywhere_wsgi.py` into the WSGI
+config, and reload. Steps 1–3 below spell it out.
+
+**Node.js is not required** — the frontend bundle is committed to the repo.
+
+**Before you start:** the free tier expires the web app after one month unless
+you log in. See [Free tier limits](#free-tier-limits) — fine for a demo, not
+something to carry for live client data.
 
 ---
 
-## Which repository to deploy
+## Which repository
 
 | Remote | Repository | Use |
 |--------|-----------|-----|
 | `demo` | `https://github.com/Uzair-hp/ATS_QIS_Demo.git` | Demos, trials, evaluation |
 | `origin` | `https://github.com/brightlant223/ats-qis.git` | Production |
 
-The commands below use **demo**. To deploy production instead, swap the clone
-URL in step 1 — nothing else changes.
+Swap the URL in step 1 to deploy production. Nothing else changes.
 
-> Whichever you pick, the live site's data lives only on PythonAnywhere. The
-> repo is code; the SQLite file is the record of your clients, invoices and
-> quotations. See [Backups](#backups).
+> The live site's data lives only on PythonAnywhere. The repo is code;
+> `backend/instance/ats.db` is your clients, invoices and quotations. See
+> [Backups](#backups).
 
 ---
 
-## 1. Get the code onto PythonAnywhere
+## 1. Clone
 
 In a **Bash console** (Files → Bash, or SSH):
 
 ```bash
 cd ~
 git clone https://github.com/Uzair-hp/ATS_QIS_Demo.git ATS-QIS
-cd ATS-QIS
 ```
 
-You should now see `backend/`, `frontend/`, `deploy/` and `AGENTS.md`.
-
-```bash
-ls deploy        # setup.sh and pythonanywhere_wsgi.py should be there
-```
-
-Everything after this point is steps 2 and 3 plus a handful of clicks in the
-Web tab. Only steps 2 and 3 need the Bash console; the Web-tab steps (4 and 5)
-cannot be scripted, because a click in the web interface is not something a
-console can perform.
-
----
-
-## 2. Run the setup script
+## 2. Set up
 
 ```bash
 bash ~/ATS-QIS/deploy/setup.sh
 ```
 
-Creates the virtualenv, installs Python dependencies, builds the frontend, and
-initialises the database. **Safe to re-run** — every step is idempotent.
+Creates the virtualenv, installs Python dependencies, prepares the frontend, and
+initialises the database. Safe to re-run.
 
-At the end it prints:
+Ends with:
 
 ```
     users=1 clients=0 quotations=0 profile='ATS Automation'
 ```
 
-That confirms the database is live and the schema is correct. A non-zero exit
-before that line means the site will not start — read the error.
+A non-zero exit before that line means the site will not start — read the error.
+The script also prints your venv's Python path; copy it into step 3.
 
-### If `npm ci` fails: no Node.js
+**If it says `npm not installed`**, that is expected and fine. PA does not
+enable Node.js on every account, so `setup.sh` falls back to the bundle
+committed at `frontend/dist`.
 
-PA does not enable Node.js on every account. If the `npm ci` step fails with a
-"command not found" or the script stops at the build, ask PythonAnywhere to
-enable Node. Workaround if they won't — build the bundle locally and commit it:
+When you change `frontend/src`, rebuild and commit that bundle:
 
 ```bash
-# on your machine, in the repo
-cd frontend && npm ci && npm run build
-git add -f frontend/dist            # dist/ is gitignored
-git commit -m "build: frontend bundle"
-git push demo main
+cd frontend && npm run build
+git add -A frontend/dist && git commit -m "build: frontend bundle"
 ```
-
-Then skip the build step on PA. Note this commits ~0.7 MB of generated assets
-into history, which is why it is the fallback and not the default.
 
 ---
 
-## 3. Configure the web app
+## 3. Point a web app at it
 
 **Web** tab → **Add a new web app** → **Manual configuration**.
 
 | Setting | Value |
 |---|---|
-| Python version | must match the virtualenv. The script uses `3.11`; if you changed it, match that. |
+| Python version | the one step 2 printed |
 | Source code | leave **empty** — the project is already at `~/ATS-QIS` |
 | Virtualenv | `ats-qis` |
 
-Then **Edit the WSGI configuration file** (link at the top of the Web tab) and
-paste the entire contents of `deploy/pythonanywhere_wsgi.py`.
+**Edit the WSGI configuration file** and paste all of
+`deploy/pythonanywhere_wsgi.py`. It puts `backend/` on the path, loads `.env`,
+forces `FLASK_ENV=production`, fails loudly if `SECRET_KEY` is missing, then
+imports the app. Edit `PROJECT_ROOT` at the top if you cloned elsewhere.
 
-That file does four things in order: puts `backend/` on `sys.path`, loads
-`.env`, forces `FLASK_ENV=production` and fails loudly if `SECRET_KEY` is
-missing, then imports the app. **Edit `PROJECT_ROOT` near the top** if you
-cloned somewhere other than `~/ATS-QIS`.
+Do not point the web app at `backend/wsgi.py` — PA looks for a name called
+`application`, which only the PA file provides.
 
-Do **not** point the web app at `backend/wsgi.py` directly — PA looks for a
-module-level name called `application`, which only the PA file provides.
+## 4. Static files — optional
 
----
+**Skip it and everything still works.** Flask serves `frontend/dist` and every
+asset loads correctly with no mapping:
 
-## 4. Static files
+```
+/app/assets/index-*.js    200  application/javascript
+/app/assets/index-*.css   200  text/css
+/app/assets/logo.png      200  image/png
+```
 
-Still on the **Web** tab, under **Static files**, add **both** mappings:
+Adding the mapping hands those requests to PA's front end instead of occupying
+your one web worker. On the free tier that is worth two clicks, but it is an
+optimisation, not a requirement.
+
+**Web** tab → **Static files**:
 
 | URL | Directory |
 |---|---|
 | `/app/assets/` | `/home/<username>/ATS-QIS/frontend/dist/assets` |
-| `/app/assets/logo.png` | `/home/<username>/ATS-QIS/frontend/dist/assets` |
 
-**Both are needed.** The first covers the content-hashed `index-*.css` and
-`index-*.js`. The logo and stamp are unhashed, so they need a mapping of their
-own. Without either, files still load — Flask falls through to a catch-all route
-— but every request occupies a web worker, and the free tier has exactly one.
+## 5. Reload and check
 
-Then click the green **RELOAD** button.
-
----
-
-## 5. Verify
+Click the green **RELOAD** button, then:
 
 ```
 https://<username>.pythonanywhere.com/api/health
 ```
 
-Expect:
-
-```json
-{"status":"ok","frontend":"built"}
-```
-
-| `"frontend"` | Meaning |
-|---|---|
-| `built` | Good. The bundle is present. |
-| `missing` | `npm run build` did not run or went elsewhere. Check `~/ATS-QIS/frontend/dist/index.html` exists. |
-
-This endpoint is public, so it works in a logged-out browser — useful for
-checking a deploy from a phone.
+Expect `{"status":"ok","frontend":"built"}`. The endpoint is public, so it works
+logged out.
 
 Then open `/app/` and log in with `admin` / `ats@2026`.
 
-> **Change the password immediately** — Settings → Change Password. The default
-> credentials are public knowledge and this is a public URL.
+> **Change the password immediately.** The defaults are public knowledge and
+> this is a public URL.
 
-## Verified: what was tested
-
-This path was exercised on 2026-10-08 against a **clean clone of the demo
-repo** — the same thing PA clones — with no `dist/`, no `node_modules/` and no
-`.env` present. Results:
-
-| Check | Result |
-|---|---|
-| Clone size | 3.5 MB |
-| `npm ci && npm run build` | 47 MB deps, 0.7 MB bundle |
-| `wsgi.py` imported the way PA does | OK |
-| `/api/health` | `{"status":"ok","frontend":"built"}` |
-| `/app/` | 200, SPA shell |
-| `/app/quotations/1` | 200 — deep-link survives a refresh |
-| `/api/quotations`, `/invoices`, `/clients`, `/settings` | 200, authenticated |
-| `ProxyFix` active | yes |
-| `SESSION_COOKIE_SECURE` | true |
-| Database created, admin seeded | yes |
-
-Also confirmed the failure mode is diagnosable: **before** `npm run build`,
-`/app/` returns 503 and health reports `"frontend":"missing"`. A broken build
-tells you, rather than serving a blank page.
-
-What was **not** tested: anything requiring your account — the Web tab steps,
-the actual PA proxy in front of the app, HTTPS termination, and the free-tier
-CPU allowance under real traffic.
-
-### Smoke test after you deploy
+### Smoke test
 
 | Check | Expected |
 |---|---|
 | `/api/health` | `{"status":"ok","frontend":"built"}` |
-| `/app/` | The login screen |
-| `/app/quotations/1` | Login redirect — proves the SPA deep-link fallback works |
-| Login | Dashboard loads |
-| Open a quotation → Print / Save as PDF | A4 sheet with the FORTIS layout |
+| `/app/` | Login screen |
+| `/app/quotations/1` | Login redirect — proves deep-links work |
+| Login → dashboard | Loads |
+| Quotation → Print / Save as PDF | A4 sheet, FORTIS layout |
 | Same quotation → Download PDF | Same figures, server-rendered |
-| Blank letterhead (sidebar → System) | One-page PDF |
+| Sidebar → Blank Letterhead | One-page PDF |
 
-The print sheet and the PDF are two separate pipelines and must show the **same
+The print sheet and the PDF are separate pipelines and must show the **same
 figures**. If they disagree, that is a bug — see `context_handover.md` §5.
 
 ---
 
 ## Environment variables
 
-Set in the **Web** tab under **Environment variables**, or in
-`backend/.env` (the WSGI file loads it):
+Set in the **Web** tab under **Environment variables**, or in `backend/.env`
+(the WSGI file loads it):
 
 | Variable | Required | Notes |
 |---|---|---|
-| `SECRET_KEY` | **yes** | The app refuses to start without it in production. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. `setup.sh` writes one if absent. |
+| `SECRET_KEY` | **yes** | The app refuses to start without it in production. `setup.sh` writes one. |
 | `FLASK_ENV` | **yes** | `production`. |
-| `ALLOWED_ORIGINS` | no | Only for a split deployment where the SPA is on a different host. Comma-separated. **Not needed here** — the SPA is same-origin. |
+| `ALLOWED_ORIGINS` | no | Only for a split deployment. **Not needed here** — the SPA is same-origin. |
 
-> Changing `SECRET_KEY` invalidates every session. Nobody loses data, but
-> everyone gets logged out.
+Changing `SECRET_KEY` logs everyone out. No data is lost.
 
 ---
 
@@ -220,124 +167,107 @@ Set in the **Web** tab under **Environment variables**, or in
 ```bash
 cd ~/ATS-QIS
 source ~/.virtualenvs/ats-qis/bin/activate
-
-cd frontend && npm ci && npm run build && cd ..
-pip install -r backend/requirements.txt   # only if dependencies changed
+pip install -r backend/requirements.txt     # only if deps changed
+cd frontend && npm ci && npm run build && cd ..   # only if you have npm
 ```
 
-Then **RELOAD** on the Web tab.
+Then **RELOAD**.
 
-`db.create_all()` and the column migrations run inside `create_app()`, so schema
-changes apply on the next reload. No manual migration step.
+Schema changes need no manual step — `db.create_all()` and the migrations run
+inside `create_app()` on import.
 
-Full redeploy from scratch (moving machines, or a botched change):
+Full redeploy from scratch:
 
 ```bash
-cd ~
+cd ~ && mv ATS-QIS/backend/instance/ats.db ~/ats-backup.db
 rm -rf ATS-QIS
 git clone https://github.com/Uzair-hp/ATS_QIS_Demo.git ATS-QIS
 bash ~/ATS-QIS/deploy/setup.sh
+mkdir -p ATS-QIS/backend/instance && mv ~/ats-backup.db ATS-QIS/backend/instance/ats.db
 ```
-
-The database is *not* in the repo — copy `backend/instance/ats.db` aside first
-if you want to keep it. See [Backups](#backups).
 
 ---
 
 ## Free tier limits
 
-Measured figures from a clean clone on 2026-10-08. The free tier gives:
+Measured 2026-10-08 from a clean clone.
 
 | Limit | Value | Consequence here |
 |---|---|---|
-| Disk | 512 MiB | Repo is **3.5 MB**; `node_modules` **47 MB**; `dist` 0.7 MB. Plenty of room. Delete `.git` if you want it back. |
-| Web apps | 1 | Fine. |
-| Web workers | **1** | Every request is serial. The static-file mappings in step 4 matter much more than usual. |
-| CPU | 100 s/day | PDF generation dominates. A heavy day of quotation/invoice printing will exhaust this. |
-| Web app expiry | **1 month** | **The app stops being served unless you log in.** PA emails before this. Your data is *not* deleted — click the link to restart it. |
-| MySQL / scheduled tasks | unavailable on accounts created after 2026-01-15 | SQLite only, no cron. |
-| Consoles | 2 | Fine for this. |
+| Disk | 512 MiB | The clone is **4.1 MB** with the bundle in it. Not a concern. |
+| Web workers | **1** | Requests are serial. The optional mapping in step 4 is worth adding. |
+| CPU | 100 s/day | PDF generation dominates. A heavy printing day will exhaust it. |
+| Web app expiry | **1 month** | **The app stops being served unless you log in.** PA emails first. Your data is *not* deleted — click the link to restart it. |
+| MySQL / cron | unavailable on accounts created after 2026-01-15 | SQLite only, no scheduled tasks. |
+| Consoles | 2 | Fine. |
 
-The one-month expiry is the thing to plan around. It is not a hard failure —
-you get an email, click a link, it runs again for another month — but it will
-catch you if you stop paying attention, and for a client-facing system that is
-not a risk worth carrying. The Developer plan is $10/month and removes it.
+The one-month expiry is the thing to plan around. It is not a hard failure — you
+get an email, click a link, it runs another month — but it will catch you if you
+stop paying attention. Fine for a demo; not something to carry for live client
+data. The Developer plan is $10/month and removes it.
 
 ---
 
 ## Troubleshooting
 
-**`/app/` returns a JSON error about the frontend build**
-`npm run build` did not run, or in the wrong directory. Check
-`~/ATS-QIS/frontend/dist/index.html` exists.
+**`npm not installed`**
+Expected on many accounts. The committed bundle is used instead. Nothing to do.
+
+**`setup.sh` fails at the venv step**
+The pinned Python version is not on your account. Check the Web tab for your
+available version and change the `--python=` flag in the script.
 
 **Site blank, or every request 503s**
 Check the **error log** on the Web tab. A missing `SECRET_KEY` raises at import
-and takes the whole worker down — the WSGI file checks this first with a clearer
+and takes the worker down; the WSGI file checks this first with a clearer
 message than the app would give.
 
+**`/app/` returns a JSON error about the frontend build**
+`frontend/dist/index.html` is missing. Re-run `setup.sh`.
+
+**CSS and JS 404, page unstyled**
+Stale bundle. Check `/api/health` — `"missing"` means `dist/` is absent;
+`"built"` with 404s means the browser cached an old `index.html`. Hard-reload
+with Ctrl+Shift+R.
+
 **Login works, then every request 403s**
-`SESSION_COOKIE_SECURE` is on in production, so the session cookie is only sent
-over HTTPS. Make sure you are on the `https://` URL. PA redirects the `http://`
-one, but if you are testing with curl or a script, force https explicitly.
+`SESSION_COOKIE_SECURE` is on in production, so the session cookie only travels
+over HTTPS. Use the `https://` URL.
 
 **`405` on POST/PUT/DELETE**
-The CSRF check rejects requests with no token. Usually means a different origin
-than expected — check `ALLOWED_ORIGINS`, and confirm `FLASK_ENV=production`
-so `ProxyFix` is active.
-
-**CSS and JS 404, page renders unstyled**
-Static file mappings missing or pointing at the wrong directory. The catch-all
-route serves `index.html` for unknown paths, so `/app/assets/...` falls through
-to it and returns HTML with a JavaScript content type.
-
-**Logo or stamp missing but the rest of the page looks fine**
-The second static mapping (for `logo.png`) is not set.
+The CSRF check found no token. Check `ALLOWED_ORIGINS`, and confirm
+`FLASK_ENV=production` so `ProxyFix` is active.
 
 **PDFs render blank or unstyled**
 See `context_handover.md` §7 — xhtml2pdf drops several CSS features **without
-an error**, and the templates work around each one. If you edited a PDF
-template, read that section before assuming the engine will tell you what broke.
-
-**`setup.sh` fails at the venv step**
-The pinned Python version may not be on your account. Check the Web tab for
-your available version and change the `--python=` flag in the script.
+an error**. If you edited a PDF template, read that first.
 
 ---
 
 ## Backups
 
-`backend/instance/ats.db` is your entire dataset — clients, quotations,
-invoices, and the company profile. **Nothing else backs it up.**
+`backend/instance/ats.db` is your entire dataset. **Nothing else backs it up.**
 
 ```bash
-# on PA
 cp ~/ATS-QIS/backend/instance/ats.db ~/backup-$(date +%F).db
-
-# restore
+# restore, then RELOAD on the Web tab
 cp ~/backup-2026-10-08.db ~/ATS-QIS/backend/instance/ats.db
-# then RELOAD on the Web tab
 ```
 
-Copy it off the platform if the data matters — a lost account means a lost
-database. Scheduled backups need a paid account; on the free tier this is a
-manual step.
+Copy it off the platform if the data matters. Automated backups need a paid
+account.
 
-To start over with an empty system: Settings → Danger Zone → type
-`DELETE ALL DATA`. This wipes business data but keeps the company profile.
+Start over with an empty system: Settings → Danger Zone → `DELETE ALL DATA`.
 
 ---
 
 ## Not covered here
 
-- **Automated deploys.** No build hook on the free tier. A scheduled task
-  pulling `main` needs a paid account, and pulling into the branch the Web tab
-  is pointed at is easy to get wrong. Manual `git pull` + RELOAD is fine for a
-  system this size.
+- **Automated deploys.** No build hook on the free tier. `git pull` + RELOAD is
+  fine for a system this size.
 - **Custom domains.** Paid tier only.
-- **Automated backups.** See above — manual only on the free tier.
-- **Zero-downtime deploys.** PA reloads in place. Expect a few seconds of
-  downtime on each reload.
+- **Automated backups.** Manual on the free tier.
+- **Zero-downtime reloads.** Expect a few seconds of downtime per reload.
 
 ---
 
@@ -345,8 +275,8 @@ To start over with an empty system: Settings → Danger Zone → type
 
 | File | Purpose |
 |---|---|
-| `setup.sh` | Everything scriptable: venv, deps, frontend build, database |
+| `setup.sh` | Everything scriptable |
 | `pythonanywhere_wsgi.py` | Paste into the Web tab's WSGI config file |
-| `backend/wsgi.py` | The app factory's WSGI entry point — do **not** paste this into PA |
-| `../context_handover.md` | Architecture and the xhtml2pdf constraints (§7) |
-| `../AGENTS.md` | Which remote to push to, and the traps in this codebase |
+| `backend/wsgi.py` | The app's WSGI entry point — do **not** paste this into PA |
+| `../context_handover.md` | Architecture; xhtml2pdf constraints in §7 |
+| `../AGENTS.md` | Which remote to push to; traps in this codebase |
