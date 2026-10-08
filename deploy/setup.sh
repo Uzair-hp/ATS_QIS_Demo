@@ -21,7 +21,9 @@ if [ ! -d "$BACKEND" ]; then
 fi
 
 # --- virtualenv ------------------------------------------------------------
-# Pin the interpreter. PA's default can change under you; a named venv does not.
+# PA builds these from the Python the Web tab selects, so a mismatch is the
+# usual cause of a worker that imports but serves nothing. Print the path so it
+# can be copied into the Web tab verbatim.
 if [ ! -d "$VENV" ]; then
     echo "==> Creating virtualenv at $VENV"
     # Use whichever python PA offers. Check the Web tab for the exact path.
@@ -30,6 +32,7 @@ else
     echo "==> Virtualenv already exists, reusing it"
     source "$VENV/bin/activate"
 fi
+echo "    python: $(python -V 2>&1) at $VENV"
 
 # --- python dependencies ---------------------------------------------------
 # requirements.txt holds the runtime deps only; the test deps live in
@@ -39,15 +42,28 @@ pip install --upgrade pip
 pip install -r "$BACKEND/requirements.txt"
 
 # --- frontend build --------------------------------------------------------
-# PA has Node.js available. If it is not installed on your account, PA will say
-# so when you open the Bash console; ask them to enable it.
-echo "==> Building the frontend"
+# Two paths, because Node.js is NOT enabled on every PythonAnywhere account.
+#   - npm present: build from source, which is always current.
+#   - npm absent:  use the bundle committed at frontend/dist.
+#
+# The committed bundle is what makes this work on a node-less account. Rebuild
+# and commit it locally whenever frontend/src changes:
+#     cd frontend && npm run build && git add -f dist && git commit
+echo "==> Preparing the frontend"
 cd "$PROJECT_ROOT/frontend"
-npm ci          # respects package-lock.json; use `npm install` if you have no lockfile
-npm run build   # -> frontend/dist
+
+if command -v npm >/dev/null 2>&1; then
+    echo "    npm found - building from source"
+    npm ci        # respects package-lock.json; use `npm install` if you have no lockfile
+    npm run build # -> frontend/dist
+else
+    echo "    npm not installed on this account - using the committed bundle"
+    echo "    (rebuild it locally and commit if the frontend has changed since:"
+    echo "     cd frontend && npm run build && git add -f dist && git commit)"
+fi
 
 if [ ! -f "$PROJECT_ROOT/frontend/dist/index.html" ]; then
-    echo "ERROR: build produced no dist/index.html - the site will return 503." >&2
+    echo "ERROR: no frontend/dist/index.html - the site will return 503." >&2
     exit 1
 fi
 echo "    dist/index.html OK"
