@@ -2,7 +2,8 @@
 
 > **Purpose:** This document provides full context for continuing development of this project.  
 > **Last Updated:** 2026-10-08  
-> **Project Path:** `D:\Brightlant-Work\ATS-QIS`
+> **Project Path:** `D:\Brightlant-Work\ATS-QIS`  
+> **Remotes:** `demo` → `Uzair-hp/ATS_QIS_Demo` (the default push target — see `AGENTS.md` §1) · `origin` → `brightlant223/ats-qis` (production, push only when explicitly asked)
 
 ---
 
@@ -437,16 +438,18 @@ quotation print sheet is measured against. Key elements:
 
 ## 11. Conventions & Rules
 
-1. **One task at a time** — complete one task before moving to the next
-2. **Decorative assets are raster, not SVG, in server PDFs** — see §7
-3. **Hinglish communication** — user communicates in Hindi-English mix
-4. **Do what is best** — user trusts developer judgment for technical decisions
-5. **Database name** — `ats.db`, at `backend/instance/ats.db`
-6. **App theme** `#007acc`; **print sheet** its own FORTIS-sampled palette
-7. **Run the tests** — `pytest` and `npm test` before calling work done
-8. **Both print pipelines exist** — change one, check the other
-9. **Never bundle a fallback stamp or logo for company-specific fields**
-10. **Render the PDF and look at it** — xhtml2pdf fails silently, so a passing
+1. **"Push" means `git push demo main`** — `AGENTS.md` §1 has the full rule.
+   `origin` is production; never push there unless explicitly asked.
+2. **One task at a time** — complete one task before moving to the next
+3. **Decorative assets are raster, not SVG, in server PDFs** — see §7
+4. **Hinglish communication** — user communicates in Hindi-English mix
+5. **Do what is best** — user trusts developer judgment for technical decisions
+6. **Database name** — `ats.db`, at `backend/instance/ats.db`
+7. **App theme** `#007acc`; **print sheet** its own FORTIS-sampled palette
+8. **Run the tests** — `pytest` and `npm test` before calling work done
+9. **Both print pipelines exist** — change one, check the other
+10. **Never bundle a fallback stamp or logo for company-specific fields**
+11. **Render the PDF and look at it** — xhtml2pdf fails silently, so a passing
     test is not proof the output is right
 
 ---
