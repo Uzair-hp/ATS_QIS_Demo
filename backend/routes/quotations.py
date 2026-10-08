@@ -11,10 +11,11 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from flask import (
-    Blueprint, request, jsonify, current_app, make_response, render_template
+    Blueprint, request, jsonify, make_response, render_template
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem, CompanyProfile, now_ist, IST
+from routes.pdf_assets import get_pdf_assets
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_valid_days, parse_item_quantity, parse_item_rate,
@@ -44,14 +45,6 @@ def generate_quotation_number():
             if seq > max_seq:
                 max_seq = seq
     return f'ATS-QT-{year}-{(max_seq + 1):03d}'
-
-
-def get_logo_base64():
-    logo_path = os.path.join(current_app.static_folder, 'img', 'logo.png')
-    if os.path.exists(logo_path):
-        with open(logo_path, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
-    return ''
 
 
 def _calc_totals(sub_total, discount_val, discount_type, gst_percent=0.0):
@@ -183,17 +176,33 @@ def export_quotations():
 
     si = io.StringIO()
     cw = csv.writer(si)
-    cw.writerow(['Quotation Number', 'Client Name', 'Date Created', 'Valid Until', 'Estimated Timeline', 'Total Amount', 'Status'])
+    cw.writerow([
+        'Quotation Number', 'Client Name', 'Client Company', 'Subject',
+        'Date Created', 'Valid Until', 'Estimated Timeline', 'Sub Total',
+        'Discount', 'Discount Type', 'Discount Amount', 'GST %', 'GST Amount',
+        'Total Amount', 'Payment Terms', 'Delivery Address', 'Notes', 'Status',
+    ])
 
     for q in quotations:
         valid_until = q.valid_until.strftime('%Y-%m-%d') if q.valid_until else ''
         cw.writerow([
             q.quotation_number,
             q.client.name if q.client else '',
+            q.client.company_name if q.client else '',
+            q.subject or '',
             q.date_created.strftime('%Y-%m-%d'),
             valid_until,
             q.estimated_timeline or '',
+            f"{q.sub_total:.2f}",
+            f"{q.discount:.2f}",
+            q.discount_type or '',
+            f"{q.discount_amount:.2f}",
+            f"{q.gst_percent:g}",
+            f"{q.gst_amount:.2f}",
             f"{q.total_amount:.2f}",
+            q.payment_terms or '',
+            q.delivery_address or '',
+            q.notes or '',
             q.status
         ])
 
@@ -349,7 +358,7 @@ def view_quotation(id):
 
     return jsonify({
         **_quotation_json(quotation, detailed=True),
-        'logo_base64': get_logo_base64(),
+        'logo_base64': get_pdf_assets()['logo_base64'],
         'whatsapp_url': whatsapp_url,
         'email_url': email_url,
         'profile': {
@@ -597,12 +606,12 @@ def unarchive_quotation(id):
 def download_pdf(id):
     quotation = Quotation.query.get_or_404(id)
     profile = CompanyProfile.get_profile()
-    logo_b64 = get_logo_base64()
 
     html_string = render_template(
         'quotations/pdf_template.html',
         quotation=quotation,
-        logo_base64=logo_b64, profile=profile,
+        profile=profile,
+        **get_pdf_assets(),
     )
 
     try:

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -16,5 +16,9 @@ export default defineConfig({
       '/manifest.json': { target: 'http://localhost:5000' },
       '/static': { target: 'http://localhost:5000' },
     },
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/__tests__/**/*.test.js'],
   },
 })

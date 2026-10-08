@@ -33,6 +33,13 @@ export function mapQuotationForPrint(quotation, settings) {
     gstPercent: Number(q.gst_percent) || 0,
     discount: Number(q.discount) || 0,
     discountType: str(q.discount_type) || 'flat',
+    // The API returns the stored, already-computed totals. They are what the
+    // database holds and what the server-rendered PDF prints, so the sheet must
+    // show these rather than recomputing them from the item rows.
+    subTotal: q.sub_total,
+    discountAmount: q.discount_amount,
+    gstAmount: q.gst_amount,
+    totalAmount: q.total_amount,
 
     client: {
       name: str(client.company_name) || str(client.name),
@@ -43,7 +50,8 @@ export function mapQuotationForPrint(quotation, settings) {
 
     items: (q.items ?? []).map((it) => ({
       // The sheet has a single "Particular" column, so the item name and its
-      // description share it. print.css renders this cell with pre-wrap.
+      // description share it, separated by a newline. print.css sets
+      // `white-space: pre-line` on .qp-particular to keep that break.
       description: [str(it?.service_name), str(it?.description)].filter(Boolean).join('\n'),
       hsn: str(it?.hsn_code),
       qty: it?.quantity,

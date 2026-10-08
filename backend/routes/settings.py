@@ -9,6 +9,40 @@ from models import db, CompanyProfile
 
 settings_bp = Blueprint('settings', __name__)
 
+# The stamp is stored base64-encoded in a TEXT column, so an unbounded upload
+# would bloat every settings response (the API returns the whole blob on every
+# GET). 2 MB of PNG is far more than a scanned signature needs.
+MAX_STAMP_BYTES = 2 * 1024 * 1024
+
+# Magic bytes -> MIME. Sniffed rather than trusted from the browser, because the
+# value is embedded straight into a PDF/print data URI.
+_RASTER_SIGNATURES = (
+    (b'\x89PNG\r\n\x1a\n', 'image/png'),
+    (b'\xff\xd8\xff', 'image/jpeg'),
+    (b'GIF87a', 'image/gif'),
+    (b'GIF89a', 'image/gif'),
+)
+
+
+def _sniff_image_mime(data):
+    """Return the MIME type of `data`, or None if it is not a known image.
+
+    SVG is accepted deliberately: the stamp is a vector asset people upload, and
+    the browser print sheet renders it through the same code path as a raster.
+    An SVG referenced from an <img> cannot execute script, so this is not a way
+    to smuggle active content into the printed sheet.
+    """
+    for signature, mime in _RASTER_SIGNATURES:
+        if data.startswith(signature):
+            return mime
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'image/webp'
+    # An SVG may open with an XML declaration or a doctype, so look for the
+    # root element within the first chunk rather than requiring it first.
+    if b'<svg' in data[:512]:
+        return 'image/svg+xml'
+    return None
+
 
 def _profile_json(p):
     return {
@@ -27,6 +61,7 @@ def _profile_json(p):
         'gst_number': p.gst_number,
         'msme_number': p.msme_number,
         'stamp_image': p.stamp_image,
+        'stamp_mime': p.stamp_mime,
         'default_gst_percent': p.default_gst_percent,
         'default_terms': p.default_terms,
         'default_quotation_terms': p.default_quotation_terms,
@@ -79,9 +114,24 @@ def update_settings():
 
     if stamp_file and stamp_file.filename:
         stamp_data = stamp_file.read()
+        if len(stamp_data) > MAX_STAMP_BYTES:
+            return jsonify({
+                'error': f'Stamp image is too large '
+                         f'({len(stamp_data) // 1024} KB). '
+                         f'Maximum is {MAX_STAMP_BYTES // 1024} KB.'
+            }), 400
+        if not stamp_data:
+            return jsonify({'error': 'Stamp image is empty.'}), 400
+        mime = _sniff_image_mime(stamp_data)
+        if mime is None:
+            return jsonify({
+                'error': 'Stamp must be a PNG, JPEG, GIF, WebP or SVG image.'
+            }), 400
         profile.stamp_image = base64.b64encode(stamp_data).decode('utf-8')
-    elif str(g('remove_stamp', '')) == '1' or g('remove_stamp') is True:
+        profile.stamp_mime = mime
+    elif str(g('remove_stamp', '')) == '1':
         profile.stamp_image = None
+        profile.stamp_mime = None
 
     try:
         profile.default_due_days = int(g('default_due_days', 15))

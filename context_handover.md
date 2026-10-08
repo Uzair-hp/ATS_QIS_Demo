@@ -1,90 +1,144 @@
 # ATS Automation QIS — Context Handover Document
 
 > **Purpose:** This document provides full context for continuing development of this project.  
-> **Last Updated:** 2026-08-26  
-> **Project Path:** `c:\Users\offic\Desktop\qis`
+> **Last Updated:** 2026-10-08  
+> **Project Path:** `D:\Brightlant-Work\ATS-QIS`
 
 ---
 
 ## 1. Project Overview
 
-**ATS Automation QIS** (Quotation & Invoice System) is a self-hosted Flask web application for **ATS Automation**, a Gate Automation & Security Solutions company based in Mumbai. The app manages the full client billing lifecycle — quotations, invoices, PDF generation, and client management.
+**ATS Automation QIS** (Quotation & Invoice System) is a self-hosted Flask + React web application for **ATS Automation**, a Gate Automation & Security Solutions company based in Mumbai. The app manages the full client billing lifecycle — quotations, invoices, PDF generation, and client management.
 
 ### Tech Stack
 | Component | Technology |
 |---|---|
-| **Backend** | Python 3, Flask |
+| **Backend** | Python 3, Flask (REST API, JSON only) |
 | **Database** | SQLite via SQLAlchemy |
-| **Auth** | Flask-Login |
-| **PDF Engine** | xhtml2pdf |
-| **Frontend** | Jinja2 templates, Bootstrap 5, vanilla JS |
+| **Auth** | Flask-Login + CSRF token on unsafe methods |
+| **Server PDF Engine** | xhtml2pdf (limited CSS subset) |
+| **Frontend** | React 18, Vite 5, react-router, Axios, Bootstrap 5 |
+| **Browser Print** | react-to-print, driving `print.css` |
 | **PWA** | Service Worker + manifest.json |
-| **Styling** | Custom CSS design system (`static/css/style.css`) |
+| **Styling** | `frontend/src/styles/style.css` (app) + `print.css` (A4 sheet) |
+| **Tests** | pytest (backend), vitest (frontend libs) |
 
-### Key Dependencies (`requirements.txt`)
+### Key Dependencies
 ```
-Flask, Flask-SQLAlchemy, Flask-Login, Werkzeug, qrcode[pil], xhtml2pdf, python-dotenv
+backend/requirements.txt  Flask, Flask-SQLAlchemy, Flask-Login, Werkzeug,
+                          qrcode[pil], xhtml2pdf, python-dotenv, flask-cors, pytest
+frontend/package.json     react, react-dom, react-router-dom, axios,
+                          react-to-print, vite, vitest
 ```
 
 ### Running the App
-```bash
-cd c:\Users\offic\Desktop\qis
-python app.py
-# Runs on http://127.0.0.1:5000
-# Default login: admin / ats2024
+```powershell
+# Terminal 1 - API on :5000
+cd backend; python app.py
+
+# Terminal 2 - Vite dev server on :3000, proxies /api to :5000
+cd frontend; npm run dev
+# Open http://localhost:3000/app/
+# Default login: admin / ats@2026
+
+# Tests
+cd backend  && pytest
+cd frontend && npm test
 ```
+
+### Two independent print pipelines
+This is the single most important thing to know before changing print code.
+
+| | Browser print sheet | Server-rendered PDF |
+|---|---|---|
+| Trigger | "Print / Save as PDF" on a quotation | "Download PDF" |
+| Layout | `frontend/src/styles/print.css` + `components/print/*` | `backend/templates/*/pdf_template.html` |
+| Renderer | Chrome, via `react-to-print` | `xhtml2pdf` |
+| Fidelity | Matches FORTIS HOSPITAL reference | Plainer; a different design |
+
+They are **not** kept in sync automatically. If you change one, check the other.
 
 ---
 
 ## 2. Project Structure
 
 ```
-c:\Users\offic\Desktop\qis\
-├── app.py                    # App factory, migrations, blueprint registration
-├── config.py                 # Config (DB: instance/ats.db)
-├── models.py                 # SQLAlchemy models (all 7 models)
-├── wsgi.py                   # WSGI entry point
-├── requirements.txt
-├── ats_logo.png              # Original ATS logo (high-res source)
-├── FORTIS HOSPITAL_page-0001.jpg  # ⭐ REFERENCE INVOICE DESIGN (must match this)
+D:\Brightlant-Work\ATS-QIS\
+├── backend/                        Flask REST API (JSON responses only)
+│   ├── app.py                      App factory, migrations, SPA serving under /app
+│   ├── config.py                   Config (dev / production), DB path
+│   ├── models.py                   SQLAlchemy models
+│   ├── wsgi.py                     WSGI entry point
+│   ├── requirements.txt
+│   ├── routes/
+│   │   ├── auth.py                 Login/logout/me, CSRF token issue
+│   │   ├── dashboard.py            Dashboard stats
+│   │   ├── clients.py              Client CRUD + CSV export
+│   │   ├── services.py             Service catalog CRUD
+│   │   ├── invoices.py             Invoice CRUD, PDF, UPI QR, CSV, convert
+│   │   ├── quotations.py           Quotation CRUD, PDF, CSV, duplicate, convert
+│   │   ├── settings.py             Company profile + stamp upload validation
+│   │   └── validation.py           Shared input validation
+│   ├── templates/                  PDF templates ONLY — no page templates
+│   │   ├── invoices/pdf_template.html
+│   │   └── quotations/pdf_template.html
+│   ├── static/                     logo.png, PWA manifest + service worker
+│   ├── tests/                      pytest suite
+│   │   ├── conftest.py             app/client/login/sample fixtures
+│   │   ├── test_calc_totals.py     totals maths
+│   │   ├── test_pdf.py             PDF endpoint smoke tests
+│   │   ├── test_csv_exports.py     export headers and values
+│   │   └── test_settings.py        stamp upload validation
+│   └── instance/ats.db             SQLite database (auto-created)
+│
+├── frontend/                       React SPA (Vite)
+│   ├── vite.config.js              base '/app/', dev proxy, vitest config
+│   ├── public/assets/              logo.png, watermark.svg
+│   ├── tools/                      PIL measurement scripts (dev only)
+│   └── src/
+│       ├── api/client.js           Axios instance (baseURL /api, 401 interceptor)
+│       ├── components/
+│       │   ├── Layout.jsx          Sidebar + topbar
+│       │   ├── ProtectedRoute.jsx
+│       │   ├── DocumentPrint.jsx   Composes the A4 sheet (quotation or invoice)
+│       │   └── print/              Header, PartyDetails, ItemsTable, Totals,
+│       │                          BankDetails, SignatureBlock, Footer
+│       ├── context/                AuthContext, ToastContext
+│       ├── lib/
+│       │   ├── quotation.js        Totals maths + normaliser + formatters
+│       │   ├── quotationMapper.js  Quotation payload -> sheet shape
+│       │   ├── invoiceMapper.js    Invoice payload -> sheet shape
+│       │   └── geometry.js         Measured column positions from FORTIS
+│       ├── pages/                  One file per screen, incl.
+│       │                          QuotationPrintPage / InvoicePrintPage
+│       └── styles/
+│           ├── style.css           App design system
+│           └── print.css           A4 quotation sheet (mm-positioned)
+│
+├── ats_logo.png                     Original ATS logo (high-res source)
+├── FORTIS HOSPITAL_page-0001.jpg   ⭐ REFERENCE DESIGN for the print sheet
 ├── QIS_USER_GUIDE.md
-├── DB_OPERATIONS.md
-│
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py               # Login/logout
-│   ├── dashboard.py          # Dashboard with stats
-│   ├── clients.py            # Client CRUD + CSV export
-│   ├── services.py           # Service catalog CRUD
-│   ├── invoices.py           # Invoice CRUD, PDF, CSV export
-│   ├── quotations.py         # Quotation CRUD, PDF, convert-to-invoice, CSV
-│   └── settings.py           # Company profile settings
-│
-├── templates/
-│   ├── base.html             # Main layout (sidebar, topbar)
-│   ├── dashboard.html
-│   ├── settings.html
-│   ├── auth/login.html
-│   ├── clients/ (list, form, detail)
-│   ├── services/ (list, form)
-│   ├── invoices/ (list, create, edit, view, pdf_template)
-│   ├── quotations/ (list, create, edit, view, pdf_template)
-│   └── letterhead/           # (exists but empty - needs template)
-│
-├── static/
-│   ├── css/style.css         # Full design system (1017 lines)
-│   ├── js/app.js             # Theme toggle, toasts, utils
-│   ├── js/sw.js              # Service worker
-│   ├── img/
-│   │   ├── logo.png          # Current app logo (used in sidebar, PDFs)
-│   │   ├── icon-192x192.png  # PWA icon
-│   │   └── icon-512x512.png  # PWA icon
-│   ├── manifest.json
-│   └── offline.html
-│
-└── instance/
-    └── ats.db                # SQLite database (auto-created)
+└── work_to_be_done.md              Audit + remaining work list
 ```
+
+### Frontend print data flow
+```
+GET /api/quotations/:id   ─┐                    ┌─ mapQuotationForPrint()
+GET /api/invoices/:id     ─┼─> normaliseQuotation() ┤  (quotationMapper.js)
+GET /api/settings/        ─┘  (quotation.js)      └─ mapInvoiceForPrint()
+                                                     (invoiceMapper.js)
+          └─> <DocumentPrint document={...} />
+                 └─> computeTotals() -> sub-components
+```
+`DocumentPrint` serves both document types; the only real differences are
+`docLabel` ("QUOTATION NO:-" vs "INVOICE NO:-"), `voucherNo` (invoices only) and
+the title. `view_quotation` returns only five `profile` fields, so bank details,
+GSTIN, MSME and the stamp come from `/api/settings/` in both cases.
+
+`computeTotals` prefers the API's stored totals (`sub_total`, `gst_amount`,
+`total_amount`) over recomputing them, so the printed sheet always agrees with
+the record and with the server-rendered PDF. `backend/tests/test_calc_totals.py`
+and `frontend/src/lib/__tests__/quotation.test.js` pin both sides.
 
 ---
 
@@ -187,15 +241,20 @@ Done via `try-except` blocks with `ALTER TABLE` in `app.py` `run_migrations()` f
 | **Quotation Prefix** | `ATS-QT-YYYY-NNN` |
 | **Old Branding** | "Brightlant" — fully replaced with "ATS Automation" everywhere |
 
-### CSS Design System (`static/css/style.css`)
+### CSS Design System (`frontend/src/styles/style.css`)
 Uses CSS variables (`--inf-*` prefix) for theming. Key variables:
 - `--inf-primary: #007acc` (light), `#33a3d9` (dark)
 - Full light/dark theme via `[data-theme="dark"]`
 - Glassmorphism cards with `.inf-card`
 
+### Print sheet palette (`frontend/src/styles/print.css`)
+Separate from the app theme. Sampled from the FORTIS reference:
+`#15588f` navy, `#2aa6dc` light blue, `#00acec` title, `#5f1f1f` maroon
+("For" line), `#3f9bda` footer rule.
+
 ---
 
-## 6. Work Completed (Phases 1-3 + Pre-Phase 4 Cleanup)
+## 6. Work Completed
 
 ### Phase 1: Database & Model Updates ✅
 - All new columns added to CompanyProfile, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem
@@ -221,125 +280,97 @@ Uses CSS variables (`--inf-*` prefix) for theming. Key variables:
 
 ### Pre-Phase 4 Cleanup ✅
 - All "Brightlant" references replaced with "ATS Automation" across entire project (zero remaining)
-- Documentation files (QIS_USER_GUIDE.md, DB_OPERATIONS.md) updated
+- Documentation files (QIS_USER_GUIDE.md, context_handover.md) updated
+
+### Phase 4: Decoupled Flask API + React SPA ✅
+- `backend/` returns JSON only; all page templates removed
+- `frontend/` React 18 + Vite SPA with a design system, router and Axios client
+- Flask serves `frontend/dist` under `/app`, so one process serves everything
+- Centralised 401 interceptor; CSRF token issued by `GET /api/auth/me`
+
+### Phase 5: FORTIS-aligned quotation print sheet ✅
+- `styles/print.css` + `components/print/*`, every offset measured from the
+  reference at 300 dpi
+- Live data wired through `quotationMapper.js` → `normaliseQuotation`
+- Company stamp plumbed as base64 from `/api/settings/`, MIME sniffed
+- Flow-based pagination with a repeating `<thead>` and fixed page chrome
+
+### Phase 6: Correctness, tests and exports ✅
+- Invoice print page added; `DocumentPrint.jsx` backs both document types
+- Backend totals now authoritative for the print sheet (no rounding divergence)
+- Discount rows use explicit classes, not `:nth-child`
+- Stamp upload validated (magic bytes sniffed, 2 MB cap) and no bundled
+  fallback stamp, so one company's seal cannot print on another's quote
+- 40 pytest + 53 vitest tests
+- CSV exports extended to the full column set
 
 ---
 
-## 7. REMAINING WORK — Phase 4, 5, 6
+## 7. REMAINING WORK
 
-### Phase 4: PDF Redesign — Invoice ← START HERE
+Tracked in `work_to_be_done.md`. In priority order:
 
-> **CRITICAL:** The reference invoice design is at `FORTIS HOSPITAL_page-0001.jpg` in project root. The PDF must match this design.
+### 7.1 Backend PDF redesign (server-rendered PDFs)
 
-#### Task 4.1: Blue Swoosh Header Decoration — SKIPPED
-**Decision made:** Use inline SVG/CSS code in the PDF template instead of a PNG image. Better approach (no file dependency, scales perfectly).
+`backend/templates/invoices/pdf_template.html` and
+`quotations/pdf_template.html` still use the older ATS-blue design, not the
+FORTIS layout. The quotation template now carries the same *content* as the
+invoice (GST line, bank block, stamp, signature, subject/terms), so only the
+visual design is outstanding.
 
-#### Task 4.2: Invoice PDF Template Redesign ← NEXT TASK
-**File:** `templates/invoices/pdf_template.html`
-**PDF engine:** xhtml2pdf (limited CSS support — no flexbox/grid, uses `<table>` layouts)
-**Logo base64:** Passed as `logo_base64` variable to template
-**Company profile:** Passed as `profile` variable
+**Hard constraint, verified against this venv (xhtml2pdf 0.2.21 +
+reportlab 5.0.1 + svglib 2.2.0, `renderPM` not installed):**
 
-The current template exists but needs COMPLETE redesign to match the reference:
+| Input | Images in output PDF |
+|---|---|
+| `<img src="data:image/png;base64,…">` | **1** ✅ |
+| `<img src="data:image/svg+xml;base64,…">` | **0** ❌ silently dropped |
+| inline `<svg>` element | **0** ❌ silently dropped |
+| CSS `linear-gradient` | ignored |
 
-```
-┌──────────────────────────────────────────────────────┐
-│ [ATS Logo]                     [Blue swoosh SVG]      │  ← LETTERHEAD HEADER
-│                                                      │
-│                    GARAGE DOOR                       │  ← Subject title (bold, blue, centered)
-│                                                      │
-│ TO,                    INVOICE NO:-        Date:-     │
-│ Client name            Voucher no                    │
-│ Client address         PaymentTerm: xxx              │
-│                        Delivery:- address            │
-│ K/A: Contact person    GST NO. client gst            │
-│                                                      │
-│ ┌──────┬───────────┬───────┬──────┬──────┬─────────┐ │
-│ │SR.NO.│ Particular│HSN NO.│ QTY. │ RATE │ AMOUN T │ │  ← Items table
-│ ├──────┼───────────┼───────┼──────┼──────┼─────────┤ │
-│ │ 1.   │ Item desc │998719 │  1   │53223 │ 53223/- │ │
-│ └──────┴───────────┴───────┴──────┴──────┴─────────┘ │
-│                              SUBTOTAL │  79557/-/-   │
-│                              GST@18%  │  14320/-     │
-│ GST IN NO: 27BTHPT0851K1Z9           │              │
-│ CompanyName: ATS AUTOMATION           │              │
-│ Bank Details: HDFC BANK      Grand    │  93877/-     │
-│ Branch: KANDIVALI (E)        Total    │              │
-│ A/C No: 50200097301710                │              │
-│ IFSC Code: HDFC0000182   For ATS AUTOMATION          │
-│ MSME: UDYAM-MH-170148612    [STAMP IMAGE]           │
-│                           Authorized Signatory       │
-│                                                      │
-│ Signature: ___________                               │
-│ Person Name: _________                               │
-│                                                      │
-│ ┌──────────────────────────────────────────────────┐ │
-│ │ email    │  website   │ phone │ address          │ │  ← Blue footer bar
-│ └──────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────┘
-```
+So the swoosh, the three-box footer gradient and the watermark **must be
+pre-rendered PNGs embedded as base64**. Inline SVG produces a blank header and
+no error, which is the trap an earlier note in this document fell into. The
+browser print sheet is unaffected — Chrome renders both SVG and gradients.
 
-**Important xhtml2pdf notes:**
-- Use `<table>` based layouts (no flexbox/grid)
-- `@page` directive for page size and margins
-- Images must be base64 embedded
-- Limited CSS — stick to basic properties
-- Use `font-family: Helvetica, Arial, sans-serif`
+### 7.2 ~~Frontend invoice print page~~ ✅ Done
 
-#### Task 4.3: Update Invoice View Page
-**File:** `templates/invoices/view.html`
-Show new fields (subject, delivery, GST breakdown, HSN, voucher) in the web view page.
+`InvoicePrintPage.jsx` + `invoiceMapper.js` are in place, and `InvoiceView.jsx`
+carries a "Print / Save as PDF" link. `DocumentPrint.jsx` now backs both routes,
+so the layout has one implementation rather than two.
+
+### 7.3 Blank letterhead PDF
+
+New `routes/letterhead.py` + `templates/letterhead/pdf_template.html`, sharing
+the header/footer from 7.1.
+
+### 7.4 Manual QA sweep
+
+The checklist in `work_to_be_done.md` §3.7. The automated tests cover totals,
+PDF validity, CSV headers and stamp validation; visual alignment to FORTIS and
+dark mode / responsive behaviour still need a human.
 
 ---
 
-### Phase 5: PDF Redesign — Quotation + Letterhead
+## 8. Reference Design Description
 
-#### Task 5.1: Quotation PDF Template
-**File:** `templates/quotations/pdf_template.html`
-Same letterhead header/footer as invoice, quotation-specific fields (validity, timeline), GST + HSN columns.
+`FORTIS HOSPITAL_page-0001.jpg` in the project root is the reference the
+quotation print sheet is measured against. Key elements:
 
-#### Task 5.2: Quotation View Page
-**File:** `templates/quotations/view.html`
-Show new fields in web view.
-
-#### Task 5.3: Blank Letterhead PDF (NEW)
-- **NEW** `routes/letterhead.py` — Blueprint with `/letterhead/download` route
-- **NEW** `templates/letterhead/pdf_template.html` — Same header/footer, blank body
-- Register blueprint in `app.py`
-- Add "Download Letterhead" button somewhere accessible
-
----
-
-### Phase 6: Polish, Test & Handover
-
-#### 6.1: Dashboard — Any remaining hardcoded text fixes
-#### 6.2: Verify `#007acc` theme consistency + dark mode
-#### 6.3: CSV Export Updates
-- Add GST, HSN, subject columns to invoice/quotation CSV exports
-- Add GST to client CSV export
-#### 6.4: WhatsApp/Email sharing message updates
-#### 6.5: Full testing checklist (see implementation plan)
-#### 6.6: Cleanup — delete old DB, update docs, final sweep
-
----
-
-## 8. Reference Invoice Design Description
-
-The file `FORTIS HOSPITAL_page-0001.jpg` in the project root is the **reference design** that the invoice PDF must match. Key design elements:
-- **Header:** ATS logo (left) + blue swoosh curves (top-right corner)
-- **Subject:** Large bold blue text centered (e.g., "GARAGE DOOR")
-- **Client info (left):** TO, client name, address, K/A contact person
-- **Invoice meta (right):** Invoice No, Date, Voucher no, Payment Term, Delivery, GST No
+- **Header:** white card holding the logo, navy/light-blue swoosh across the top
+- **Title:** the subject, centred, `#00acec`
+- **Party details:** columns at 103 | 1170 | 1677 | 2053 | 2418 px
 - **Items table:** SR.NO. | Particular | HSN NO. | QTY. | RATE | AMOUNT
-- **Totals (right-aligned):** SUBTOTAL, GST@18%, Grand Total
-- **Bank details (bottom-left):** GST IN NO, CompanyName, Bank, Branch, A/C, IFSC, MSME
-- **Signature area (bottom-right):** "For ATS AUTOMATION", stamp image, "Authorized Signatory"
-- **Customer signature:** "Signature: ____" and "Person Name: ____"
-- **Footer bar:** Blue background with email, website, phone, address
+- **Totals:** SUBTOTAL, optional DISCOUNT + NET, GST@18%
+- **Bank block:** GST IN NO, CompanyName, Bank, Branch, A/C, IFSC, MSME
+- **Signature:** "For ATS AUTOMATION", stamp slot, Authorized Signatory
+- **Customer lines:** "Signature: ____" and "Person Name: ____"
+- **Footer:** three overlapping rounded boxes on a gradient
+- **Watermark:** large ATS mark at ~3.8% opacity
 
 ---
 
-## 9. Key ATS Company Details (from reference)
+## 9. Key ATS Company Details (reference values)
 
 | Field | Value |
 |---|---|
@@ -355,55 +386,48 @@ The file `FORTIS HOSPITAL_page-0001.jpg` in the project root is the **reference 
 | **Phone** | +91-9967399864, +91-8454068378 |
 | **Address** | Main St, Nallasopara East, Vasai Virar, Maharashtra 401209 |
 
-> Note: These details are stored in CompanyProfile (settings page) and pulled dynamically for PDFs. The above are reference values.
+> These live in `CompanyProfile` (Settings page) and are pulled dynamically.
+> The table above is reference data only — the app renders whatever the profile
+> holds, and prints no stamp until one is uploaded.
 
 ---
 
-## 10. User Preferences & Rules
+## 10. Conventions & Rules
 
-1. **One task at a time** — User prefers completing one task before moving to next
-2. **Code-only design** — User agreed to use inline SVG/CSS for decorative elements instead of PNG images
-3. **Hinglish communication** — User communicates in Hindi-English mix
-4. **Do what is best** — User trusts developer judgment for technical decisions
-5. **Database name** — `ats.db` (not `ats_automation.db`)
-6. **Theme color** — `#007acc` (ATS blue)
-7. **No test suite** — Project has no automated tests; manual verification only
-
----
-
-## 11. Files Most Likely to be Modified Next
-
-| Priority | File | What Needs Doing |
-|---|---|---|
-| **1** | `templates/invoices/pdf_template.html` | Complete redesign to match reference |
-| **2** | `templates/invoices/view.html` | Show new fields in web view |
-| **3** | `templates/quotations/pdf_template.html` | Same redesign as invoice |
-| **4** | `templates/quotations/view.html` | Show new fields |
-| **5** | `routes/letterhead.py` (NEW) | New blueprint for blank letterhead |
-| **6** | `templates/letterhead/pdf_template.html` (NEW) | Letterhead PDF template |
-| **7** | `app.py` | Register letterhead blueprint |
-| **8** | `routes/invoices.py` | CSV export update |
-| **9** | `routes/quotations.py` | CSV export update |
-| **10** | `routes/clients.py` | CSV export update |
+1. **One task at a time** — complete one task before moving to the next
+2. **Decorative assets are raster, not SVG, in server PDFs** — see §7.1
+3. **Hinglish communication** — user communicates in Hindi-English mix
+4. **Do what is best** — user trusts developer judgment for technical decisions
+5. **Database name** — `ats.db`, at `backend/instance/ats.db`
+6. **App theme** `#007acc`; **print sheet** its own FORTIS-sampled palette
+7. **Run the tests** — `pytest` and `npm test` before calling work done
+8. **Both print pipelines exist** — change one, check the other
+9. **Never bundle a fallback stamp or logo for company-specific fields**
 
 ---
 
-## 12. How to Verify Changes
+## 11. How to Verify Changes
 
-```bash
-# Start the app
-cd c:\Users\offic\Desktop\qis
-python app.py
+```powershell
+# Terminal 1
+cd backend; python app.py
 
-# Open in browser
-# http://127.0.0.1:5000
-# Login: admin / ats2024
+# Terminal 2
+cd frontend; npm run dev
 
-# Test PDF generation
-# Create/view an invoice → click "Download PDF"
-# The PDF should match FORTIS HOSPITAL_page-0001.jpg design
+# Open http://localhost:3000/app/  — login: admin / ats@2026
+```
+
+Quotation print sheet: open a quotation → **Print / Save as PDF**, or go
+straight to `/app/quotations/<id>/print`.
+
+Run the suites:
+
+```powershell
+cd backend  && pytest -q
+cd frontend && npm test
 ```
 
 ---
 
-*This handover document was created on 2026-08-26 to enable seamless project continuation.*
+*This handover document was last updated 2026-10-08.*

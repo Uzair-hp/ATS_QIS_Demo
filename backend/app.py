@@ -206,6 +206,7 @@ def create_app():
             "ALTER TABLE company_profile ADD COLUMN gst_number VARCHAR(50)",
             "ALTER TABLE company_profile ADD COLUMN msme_number VARCHAR(100)",
             "ALTER TABLE company_profile ADD COLUMN stamp_image TEXT",
+            "ALTER TABLE company_profile ADD COLUMN stamp_mime VARCHAR(30)",
             "ALTER TABLE company_profile ADD COLUMN default_gst_percent FLOAT DEFAULT 18.0",
             "ALTER TABLE company_profile ADD COLUMN website VARCHAR(200)",
             "ALTER TABLE clients ADD COLUMN gst_number VARCHAR(50)",

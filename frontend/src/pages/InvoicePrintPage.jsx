@@ -4,46 +4,46 @@ import { useReactToPrint } from 'react-to-print'
 import api from '../api/client'
 import DocumentPrint from '../components/DocumentPrint'
 import { normaliseQuotation } from '../lib/quotation'
-import { mapQuotationForPrint } from '../lib/quotationMapper'
+import { mapInvoiceForPrint } from '../lib/invoiceMapper'
 // Imported here (not in main.jsx) so the sheet's Calibri/Cambria face and
 // mm-positioned layout never compete with the app's stylesheet, and so the CSS
-// is code-split onto this route alone.
+// is code-split onto these routes alone.
 import '../styles/print.css'
 // Vite resolves this to a URL that respects base '/app/'.
 import watermarkUrl from '../../public/assets/watermark.svg'
 
-export default function QuotationPrintPage() {
+export default function InvoicePrintPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const contentRef = useRef(null)
-  const [quotation, setQuotation] = useState(null)
+  const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   const handlePrint = useReactToPrint({
     contentRef,
-    documentTitle: quotation?.invoiceNo || 'Quotation',
+    documentTitle: invoice?.invoiceNo || 'Invoice',
   })
 
   useEffect(() => {
     let cancelled = false
 
     if (!id) {
-      setError('No quotation was selected to print.')
+      setError('No invoice was selected to print.')
       setLoading(false)
       return () => {
         cancelled = true
       }
     }
 
-    Promise.all([api.get(`/quotations/${id}`), api.get('/settings/')])
-      .then(([qRes, sRes]) => {
+    Promise.all([api.get(`/invoices/${id}`), api.get('/settings/')])
+      .then(([iRes, sRes]) => {
         if (cancelled) return
-        setQuotation(normaliseQuotation(mapQuotationForPrint(qRes.data, sRes.data)))
+        setInvoice(normaliseQuotation(mapInvoiceForPrint(iRes.data, sRes.data)))
       })
       .catch((err) => {
         if (cancelled) return
-        setError(err.response?.data?.error || 'Could not load this quotation.')
+        setError(err.response?.data?.error || 'Could not load this invoice.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -68,8 +68,8 @@ export default function QuotationPrintPage() {
     return (
       <div className="container py-5">
         <div className="alert alert-danger">{error}</div>
-        <button type="button" className="btn btn-inf-outline" onClick={() => navigate('/quotations')}>
-          Back to quotations
+        <button type="button" className="btn btn-inf-outline" onClick={() => navigate('/invoices')}>
+          Back to invoices
         </button>
       </div>
     )
@@ -84,13 +84,13 @@ export default function QuotationPrintPage() {
           <i className="bi bi-printer me-1" />
           Print / Save as PDF
         </button>
-        <Link className="btn btn-inf-outline" to={`/quotations/${id}`}>
+        <Link className="btn btn-inf-outline" to={`/invoices/${id}`}>
           Back
         </Link>
       </div>
 
       <div ref={contentRef} style={{ '--qp-watermark': `url(${watermarkUrl})` }}>
-        <DocumentPrint document={quotation} />
+        <DocumentPrint document={invoice} />
       </div>
     </div>
   )

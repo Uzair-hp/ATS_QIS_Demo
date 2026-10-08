@@ -1,0 +1,179 @@
+{#
+  Stylesheet for the server-rendered PDFs.
+
+  This lives in its own file because `{% import %}` exposes macros but does not
+  render the imported template's body - a <style> block inside _pdf_base.html
+  is silently discarded and the PDF comes out unstyled.
+
+  Colours and geometry match the browser print sheet
+  (frontend/src/lib/geometry.js, frontend/src/styles/print.css), which is
+  measured against FORTIS HOSPITAL_page-0001.jpg.
+
+  xhtml2pdf supports a CSS 2.1 subset: no flexbox, no grid, no border-radius on
+  flow content, no gradients (the artwork is a PNG for that reason). Borders are
+  stated per-cell rather than via `border-collapse`, which xhtml2pdf ignores.
+#}
+<style>
+    @page {
+        size: a4 portrait;
+        margin: 0;
+
+        /* Header = 3.44cm swoosh + the logo card. Footer = 1.75cm art + one
+           text line. Both heights are the measured requirement; xhtml2pdf warns
+           and shrinks the content if a frame is smaller than its content. */
+        @frame header_frame {
+            -pdf-frame-content: headerContent;
+            left: 0cm; top: 0cm; width: 21cm; height: 6.3cm;
+        }
+        @frame content_frame {
+            left: 0.87cm; top: 6.4cm; width: 19.54cm; height: 20.9cm;
+        }
+        /* The footer art is 1.75cm tall including its top pad, and the text line
+           below it needs ~0.5cm. top + height must not exceed the 29.7cm page
+           height or the text is clipped off the bottom edge. */
+        @frame footer_frame {
+            -pdf-frame-content: footerContent;
+            left: 0cm; top: 27.4cm; width: 21cm; height: 2.3cm;
+        }
+    }
+
+    * { margin: 0; padding: 0; }
+
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        color: #000000;
+        font-size: 9.5pt;
+        line-height: 1.35;
+    }
+
+    /* ---- header --------------------------------------------------------- */
+    .swoosh { width: 21cm; }
+
+    .logo-cell { padding-left: 0.55cm; padding-top: 0.2cm; }
+
+    .logo-card {
+        background-color: #ffffff;
+        border: 1px solid #d7dde3;
+    }
+    .logo-card-inner { padding: 5px 9px; }
+    .logo-card img { width: 145px; }
+    .logo-fallback {
+        font-size: 14pt;
+        font-weight: bold;
+        color: #15578F;
+    }
+
+    .doc-title {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 17.5pt;
+        font-weight: bold;
+        color: #00ACEC;
+        text-align: center;
+    }
+
+    /* ---- party / meta block --------------------------------------------- */
+    .info {
+        width: 100%;
+        font-size: 9.5pt;
+    }
+    .info td { padding: 2px 4px; vertical-align: top; }
+    .info .to-block { width: 46%; padding-left: 0; }
+    .to-name { font-weight: bold; font-size: 11pt; }
+    .kv-lbl { font-weight: bold; width: 44%; }
+    .kv-val { width: 56%; }
+
+    /* ---- items ----------------------------------------------------------- */
+    .items { width: 100%; }
+    .items th {
+        background-color: #15578F;
+        color: #ffffff;
+        font-size: 8.5pt;
+        font-weight: bold;
+        text-align: center;
+        padding: 5px 4px;
+        border: 1px solid #000000;
+    }
+    .items td {
+        font-size: 9.5pt;
+        padding: 4px;
+        border: 1px solid #000000;
+        vertical-align: top;
+    }
+    .items .part-name { font-weight: bold; }
+    .items .part-desc { font-size: 8pt; color: #333333; }
+    .items .num {
+        text-align: center;
+        font-family: Georgia, 'Times New Roman', serif;
+    }
+    .items .money {
+        text-align: right;
+        font-family: Georgia, 'Times New Roman', serif;
+    }
+    .items .money-bold {
+        text-align: right;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: bold;
+    }
+
+    /* ---- bank + totals --------------------------------------------------- */
+    .bottom { width: 100%; }
+    .bank {
+        width: 56%;
+        vertical-align: top;
+        font-size: 8.5pt;
+        line-height: 1.5;
+        padding-right: 12px;
+    }
+    .bank-head, .section-head {
+        font-size: 8pt;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #15578F;
+        margin-bottom: 3px;
+    }
+    .section-head { margin-top: 8px; }
+    .bank-lbl { font-weight: bold; }
+    .qr-cell { padding-left: 0; }
+    .qr-label { padding-left: 8px; font-size: 8.5pt; }
+    .qr-upi { font-size: 8pt; }
+
+    .totals { width: 44%; vertical-align: top; }
+    .totals td { font-size: 9.5pt; padding: 4px 6px; }
+    .t-lbl { font-weight: bold; }
+    .t-val {
+        text-align: right;
+        font-family: Georgia, 'Times New Roman', serif;
+    }
+
+    /* The grand total fill has to sit on the <td>s, not the <tr>: xhtml2pdf
+       does not propagate a row background to its cells. */
+    /* The grand-total fill is applied inline by the base macro, not from this
+       stylesheet: xhtml2pdf silently drops a <tr> class and does not reliably
+       apply a class to a <td> that also carries another class. Inline styles
+       are honoured, so the macro states it directly. See grand_cell(). */
+    .grand-lbl { font-weight: bold; }
+
+    .notes-body { font-size: 8.5pt; }
+
+    /* ---- signature ------------------------------------------------------- */
+    .sig { width: 100%; }
+    .sig-blank { height: 100px; }
+    .sig-for { font-size: 10pt; font-weight: bold; }
+    .sig-maroon { color: #5F1F1F; }
+    .sig-role { font-size: 9pt; }
+    .sig-stamp { width: 105px; }
+    .sig-stamp-gap { height: 58px; }
+    .sig-lines { font-size: 9pt; margin-top: 6px; }
+
+    /* ---- footer ---------------------------------------------------------- */
+    .footer-art { width: 21cm; }
+    .footer-text {
+        color: #ffffff;
+        font-size: 8pt;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+</style>

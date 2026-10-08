@@ -1,0 +1,125 @@
+{#
+  Shared macros for the server-rendered PDFs.
+
+  NOTE: this file deliberately contains no <style> block. `{% import %}` exposes
+  macros and variables but never renders the imported template's body, so a
+  stylesheet here would be silently dropped and the PDF would render unstyled.
+  The stylesheet lives in its own file and is included by each document
+  template - see _pdf_style.html.
+
+  Engine constraints (xhtml2pdf 0.2.21): table layouts only - no flexbox or
+  grid; no inline <svg>; no data:image/svg+xml (both are dropped silently);
+  no CSS linear-gradient. Decorative artwork is therefore pre-rendered PNG
+  embedded as base64 by tools/render_assets.py.
+
+  Geometry and colours are the same values the browser print sheet uses, which
+  is measured against FORTIS HOSPITAL_page-0001.jpg - see
+  frontend/src/lib/geometry.js and frontend/src/styles/print.css.
+#}
+
+{# Money. The FORTIS reference prints plain digits with a trailing "/-", and no
+   thousands separators - matched when the amount is whole, which is the case in
+   the reference. Rounding a fractional amount to a whole rupee would print a
+   figure that disagrees with the stored record, so trailing ".00" is dropped and
+   any real paise are kept. #}
+{% macro amount(v) -%}
+{%- set n = (v or 0) -%}
+{%- set s = '{:,.2f}'.format(n) -%}
+{%- if '.' in s and s.endswith('.00') %}{{ s[:-3] }}{%- else %}{{ s }}{%- endif -%}
+/-{%- endmacro %}
+
+{% macro pct(v) %}{{ '%g'|format(v or 0) }}{% endmacro %}
+
+{# ===== HEADER ===== #}
+{% macro header(doc_kind, title) %}
+<div id="headerContent">
+    {% if swoosh_base64 %}
+    <img class="swoosh" src="data:image/png;base64,{{ swoosh_base64 }}" alt="">
+    {% endif %}
+    <table width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+            <td width="52%" valign="middle" class="logo-cell">
+                <table cellspacing="0" cellpadding="0" class="logo-card">
+                    <tr><td class="logo-card-inner">
+                        {% if logo_base64 %}
+                        <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ profile.name }}">
+                        {% else %}
+                        <span class="logo-fallback">{{ profile.name }}</span>
+                        {% endif %}
+                    </td></tr>
+                </table>
+            </td>
+            <td width="48%" valign="middle" class="doc-title">
+                {{ title or doc_kind }}
+            </td>
+        </tr>
+    </table>
+</div>
+{% endmacro %}
+
+{# ===== FOOTER ===== #}
+{% macro footer() %}
+<div id="footerContent">
+    {% if footer_base64 %}
+    <img class="footer-art" src="data:image/png;base64,{{ footer_base64 }}" alt="">
+    {% endif %}
+    <div class="footer-text">
+        {% set parts = [profile.email, profile.website, profile.phone]|select|list %}
+        {{ parts|join('    |    ') }}
+    </div>
+</div>
+{% endmacro %}
+
+{# ===== BANK BLOCK ===== #}
+{# extra_lines is raw HTML for document-specific rows (the UPI QR on invoices). #}
+{% macro bank_block(extra_lines) %}
+<div class="bank-head">Bank Details</div>
+{% if profile.gst_number %}<span class="bank-lbl">GSTIN :</span> {{ profile.gst_number }}<br>{% endif %}
+<span class="bank-lbl">CompanyName :</span> {{ (profile.name or '')|upper }}<br>
+{% if profile.bank_name %}<span class="bank-lbl">Bank Details :</span> {{ profile.bank_name }}<br>{% endif %}
+{% if profile.bank_branch %}<span class="bank-lbl">Branch :</span> {{ profile.bank_branch }}<br>{% endif %}
+{% if profile.bank_account %}<span class="bank-lbl">A/C No. :</span> {{ profile.bank_account }}<br>{% endif %}
+{% if profile.bank_ifsc %}<span class="bank-lbl">IFSC Code :</span> {{ profile.bank_ifsc }}<br>{% endif %}
+{% if profile.msme_number %}<span class="bank-lbl">MSME :</span> {{ profile.msme_number }}<br>{% endif %}
+{% if extra_lines %}{{ extra_lines|safe }}{% endif %}
+{% endmacro %}
+
+{# ===== SIGNATURE ===== #}
+{% macro signature() %}
+<table width="100%" cellspacing="0" cellpadding="0" class="sig">
+<tr>
+    <td width="58%" valign="bottom" class="sig-blank">&nbsp;</td>
+    <td width="42%" valign="top" class="text-center">
+        <div class="sig-for"><span class="sig-maroon">For</span> {{ (profile.name or '')|upper }}</div>
+        {% if profile.stamp_image %}
+        {# MIME is sniffed from the upload's magic bytes when it is saved. #}
+        <img class="sig-stamp" src="data:{{ profile.stamp_mime or 'image/png' }};base64,{{ profile.stamp_image }}" alt="Stamp"><br>
+        {% else %}
+        {# No bundled fallback stamp: a checked-in ATS seal would print on any
+           company profile that has not uploaded its own. #}
+        <div class="sig-stamp-gap"></div>
+        {% endif %}
+        <div class="sig-role">Authorized Signatory</div>
+    </td>
+</tr>
+</table>
+<div class="sig-lines">
+    <div>Signature : ______________________________</div>
+    <div>Person Name : ____________________________</div>
+</div>
+{% endmacro %}
+
+{# ===== SECTION HEADING (small caps label above a block) ===== #}
+{# `text` is inserted unescaped because callers pass pre-escaped entities such as
+   &amp;. Jinja would otherwise double-escape them into "&amp;amp;". #}
+{# The grand-total row. The fill is stated inline rather than via a class:
+   xhtml2pdf drops a class on a <tr>, and does not reliably apply one to a <td>
+   that also carries another class, so the navy bar silently disappears and the
+   PDF still reports success. Inline styles are honoured. #}
+{% macro grand_cell(text, align) -%}
+<td style="background-color:#15578F; color:#ffffff; font-weight:bold; font-size:11.5pt; padding:5px 6px;{% if align == 'right' %} text-align:right; font-family:Georgia,'Times New Roman',serif;{% endif %}">{{ text }}</td>
+{%- endmacro %}
+
+{% macro section_head(text) %}
+<div class="section-head">{{ text|safe }}</div>
+{% endmacro %}

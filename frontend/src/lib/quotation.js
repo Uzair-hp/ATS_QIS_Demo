@@ -1,17 +1,29 @@
 // Derived values for a quotation. Nothing here is typed by hand - every
 // figure comes from the item rows, the discount and gstPercent.
 //
-// Mirrors backend/routes/quotations.py::_calc_totals exactly, so a printed
-// sheet always agrees with the stored record:
-//   subtotal = Σ round(qty * rate)
+// Mirrors backend/routes/quotations.py::_calc_totals, so a printed sheet agrees
+// with the stored record:
+//   subtotal = Σ round(qty * rate, 2)          <- NOT pre-rounded to whole rupees
 //   discAmt  = percent ? round(subtotal * pct / 100, 2) : round(flat, 2)
-//   net      = max(subtotal - discAmt, 0)
-//   gst      = round(net * gstPercent / 100, 2)
+//   net      = max(round(subtotal - discAmt, 2), 0)
+//   gst      = gstPercent ? round(net * gstPercent / 100, 2) : 0
 //   total    = round(net + gst, 2)
+//
+// When the API supplies stored totals (subTotal / discountAmount / gstAmount /
+// totalAmount) those are authoritative and preferred: they are what the record
+// and the server-rendered PDF both use. Recomputation is the fallback for a
+// sheet driven from local JSON.
 
 export const roundRupee = (n) => Math.round(n)
 
 const round2 = (n) => Math.round(n * 100) / 100
+
+/** A server-supplied figure, or null when it is absent/non-finite. */
+const serverFigure = (v) => {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
 
 export function computeTotals(quotation) {
   const items = quotation.items ?? []
@@ -23,16 +35,26 @@ export function computeTotals(quotation) {
     return { ...item, srNo: index + 1, qty, rate, amount: round2(qty * rate) }
   })
 
-  const subtotal = roundRupee(lines.reduce((sum, l) => sum + l.amount, 0))
-  const gstPercent = Number(quotation.gstPercent) || 0
+  // Sum of the per-line 2dp amounts. The subtotal keeps its paise - rounding it
+  // to whole rupees here is what desynced the sheet from the stored record.
+  const computedSubtotal = round2(lines.reduce((sum, l) => sum + l.amount, 0))
+  const subtotal = serverFigure(quotation.subTotal) ?? computedSubtotal
 
+  const gstPercent = Number(quotation.gstPercent) || 0
   const rawDiscount = Number(quotation.discount) || 0
   const discountType = quotation.discountType === 'percent' ? 'percent' : 'flat'
-  const discount = discountType === 'percent' ? round2((subtotal * rawDiscount) / 100) : round2(rawDiscount)
+
+  const computedDiscount = discountType === 'percent'
+    ? round2((subtotal * rawDiscount) / 100)
+    : round2(rawDiscount)
+  const discount = serverFigure(quotation.discountAmount) ?? computedDiscount
 
   const net = Math.max(round2(subtotal - discount), 0)
-  const gst = round2((net * gstPercent) / 100)
-  const grandTotal = round2(net + gst)
+  const computedGst = gstPercent ? round2((net * gstPercent) / 100) : 0
+  const gst = serverFigure(quotation.gstAmount) ?? computedGst
+
+  const computedTotal = round2(net + gst)
+  const grandTotal = serverFigure(quotation.totalAmount) ?? computedTotal
 
   return {
     lines,
@@ -40,7 +62,9 @@ export function computeTotals(quotation) {
     discount,
     discountPercent: rawDiscount,
     discountType,
-    hasDiscount: discount > 0,
+    // Driven by what the user entered, not by the computed amount: a percent
+    // discount small enough to round to zero still has a DISCOUNT row to show.
+    hasDiscount: rawDiscount > 0,
     net,
     gstPercent,
     gst,
@@ -116,6 +140,11 @@ export function normaliseQuotation(input) {
     // Discount is applied before GST, matching the backend.
     discount: num(input.discount),
     discountType: str(input.discountType ?? 'flat'),
+    // Stored totals from the API, when present. computeTotals prefers these.
+    subTotal: serverFigure(input.subTotal),
+    discountAmount: serverFigure(input.discountAmount),
+    gstAmount: serverFigure(input.gstAmount),
+    totalAmount: serverFigure(input.totalAmount),
     client: {
       name: str(client.name),
       address: str(client.address),

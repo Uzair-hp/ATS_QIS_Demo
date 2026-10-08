@@ -326,6 +326,13 @@ export default function InvoiceView() {
                 <span>Download Branded PDF</span>
               </a>
 
+              {/* Browser print of the measured A4 sheet. The branded PDF above
+                  is the server-side xhtml2pdf render and is left untouched. */}
+              <Link to={`/invoices/${inv.id}/print`} className="btn btn-inf-outline w-100">
+                <i className="bi bi-printer"></i>
+                <span>Print / Save as PDF</span>
+              </Link>
+
               {inv.whatsapp_url && (
                 <a
                   href={inv.whatsapp_url}

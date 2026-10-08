@@ -4,6 +4,11 @@ import { formatAmount, formatSubtotal, roundRupee } from '../../lib/quotation'
 // Table C - the block under the items. Four columns at
 // 103 | 1677 | 1900 | 2166 | 2418 px. The second column is always empty in
 // the target; it is reproduced because it is visible.
+//
+// The measured row heights and vertical nudges in print.css are keyed off
+// these class names rather than :nth-child, because a quotation with a discount
+// renders four rows instead of two and a positional rule would then land on the
+// wrong label.
 export default function Totals({ totals }) {
   return (
     <table className="qp-table qp-totals">
@@ -13,17 +18,15 @@ export default function Totals({ totals }) {
         ))}
       </colgroup>
       <tbody>
-        <tr>
+        <tr className="qp-row-subtotal">
           <td />
           <td />
           <td className="qp-tot-label">SUBTOTAL</td>
           <td className="qp-tot-value qp-serif">{formatSubtotal(totals.subtotal)}</td>
         </tr>
 
-        {/* Discount row renders only when there is a discount, so a
-            no-discount quotation keeps its measured two-row geometry. */}
         {totals.hasDiscount && (
-          <tr>
+          <tr className="qp-row-discount">
             <td />
             <td />
             <td className="qp-tot-label">
@@ -35,7 +38,7 @@ export default function Totals({ totals }) {
         )}
 
         {totals.hasDiscount && (
-          <tr>
+          <tr className="qp-row-net">
             <td />
             <td />
             <td className="qp-tot-label">NET</td>
@@ -43,7 +46,7 @@ export default function Totals({ totals }) {
           </tr>
         )}
 
-        <tr>
+        <tr className="qp-row-gst">
           <td />
           <td />
           <td className="qp-tot-label">

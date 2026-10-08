@@ -1,15 +1,15 @@
 import { COL_PCT } from '../../lib/geometry'
 import { stampDataUri } from '../../lib/quotation'
-// Imported rather than referenced as '/assets/stamp.png' so Vite rewrites the
-// URL to respect base '/app/'. Used as the fallback when the company profile
-// has no custom stamp uploaded.
-import stampUrl from '../../../public/assets/stamp.png'
 
 // Table D - the tall signature box. Three columns at 84 | 1677 | 1900 | 2418
 // px. This box starts 19 px further left than every other table.
+//
+// The stamp slot is left empty when the company profile has no upload. There is
+// deliberately no bundled fallback image: a checked-in ATS stamp would be
+// printed on every other company's quotations.
 export default function SignatureBlock({ quotation }) {
   const c = quotation.company ?? {}
-  const stampSrc = c.stampImage ? stampDataUri(c.stampImage) : stampUrl
+  const stampSrc = c.stampImage ? stampDataUri(c.stampImage) : ''
 
   return (
     <>
@@ -27,9 +27,11 @@ export default function SignatureBlock({ quotation }) {
               <div className="qp-for">
                 <span className="qp-maroon">For</span> {c.name}
               </div>
-              <div className="qp-stamp">
-                <img src={stampSrc} alt={`${c.name} stamp`} />
-              </div>
+              {stampSrc && (
+                <div className="qp-stamp">
+                  <img src={stampSrc} alt={`${c.name} stamp`} />
+                </div>
+              )}
               <div className="qp-signatory">Authorized Signatory</div>
             </td>
           </tr>
