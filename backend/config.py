@@ -16,7 +16,17 @@ class Config:
     # SECRET_KEY is NOT set here. It must be provided via environment variable.
     # The app factory validates it: production fails fast if missing; development
     # auto-generates an ephemeral one if not set.
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'instance', 'ats.db')
+
+    # DATABASE_PATH lets a host put the SQLite file somewhere that survives a
+    # redeploy. Render's filesystem is ephemeral unless a persistent disk is
+    # attached, so leaving this unset there loses every quotation on each deploy.
+    # Its render.yaml mounts a disk and points this at it.
+    _default_db = os.path.join(basedir, 'instance', 'ats.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.environ.get('DATABASE_PATH', _default_db)
+
+    # Render sets this automatically; gunicorn reads it to pick its port. Kept
+    # here so `python -m gunicorn` can bind without an inline shell expression.
+    PORT = int(os.environ.get('PORT', 5000))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Session cookie hardening. The app is cookie-authenticated, so these back

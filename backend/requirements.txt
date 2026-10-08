@@ -3,9 +3,9 @@
 # Test-only packages live in requirements-dev.txt so a production host does not
 # have to install pytest.
 #
-# Versions are left unpinned deliberately: PythonAnywhere resolves these against
-# whichever interpreter the web app uses, and hard pins fail on a platform you do
-# not control. If you self-host, pin here and keep a lockfile.
+# Versions are left unpinned deliberately: PythonAnywhere and Render resolve
+# these against whichever interpreter the web app uses, and hard pins fail on a
+# platform you do not control. If you self-host, pin here and keep a lockfile.
 
 Flask
 Flask-SQLAlchemy
@@ -15,3 +15,7 @@ flask-cors
 qrcode[pil]
 xhtml2pdf
 python-dotenv
+
+# Production WSGI server. Render's startCommand uses gunicorn; PythonAnywhere
+# runs the WSGI file through its own server and ignores this.
+gunicorn

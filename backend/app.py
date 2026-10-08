@@ -51,7 +51,14 @@ def create_app():
     else:
         app.config['SECRET_KEY'] = secret_key
 
-    os.makedirs(os.path.join(os.path.dirname(__file__), 'instance'), exist_ok=True)
+    # Create the directory the SQLite file lives in. DATABASE_PATH may point
+    # somewhere else entirely (a mounted disk on Render), so derive it from the
+    # configured URI rather than assuming backend/instance.
+    db_path = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if db_path.startswith('sqlite:///'):
+        db_dir = os.path.dirname(db_path[len('sqlite:///'):])
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
 
     db.init_app(app)
 
