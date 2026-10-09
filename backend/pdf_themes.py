@@ -103,8 +103,10 @@ QUOTATION_THEMES = {
     ),
 }
 
-DEFAULT_INVOICE_THEME = 't2_letterhead'
-DEFAULT_QUOTATION_THEME = 'q1_classic'
+# The original templates stay the default so that documents generated before the
+# theme system existed keep rendering byte-identically.
+DEFAULT_INVOICE_THEME = 'classic_gst'
+DEFAULT_QUOTATION_THEME = 'classic'
 
 
 def resolve(registry, requested, fallback):

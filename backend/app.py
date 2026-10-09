@@ -268,6 +268,10 @@ def create_app():
             "ALTER TABLE quotation_items ADD COLUMN hsn_code VARCHAR(20)",
             "ALTER TABLE services ADD COLUMN hsn_code VARCHAR(20)",
             "ALTER TABLE services ADD COLUMN description TEXT",
+            "ALTER TABLE company_profile ADD COLUMN invoice_pdf_theme VARCHAR(50) DEFAULT 'classic_gst'",
+            "ALTER TABLE company_profile ADD COLUMN quotation_pdf_theme VARCHAR(50) DEFAULT 'classic'",
+            "ALTER TABLE company_profile ADD COLUMN logo_image TEXT",
+            "ALTER TABLE company_profile ADD COLUMN logo_mime VARCHAR(30)",
         ]
         for col in migrations:
             try:

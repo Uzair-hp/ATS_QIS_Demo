@@ -6,6 +6,7 @@ import base64
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import db, CompanyProfile
+from pdf_themes import themes_json
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -44,10 +45,34 @@ def _sniff_image_mime(data):
     return None
 
 
+def _validate_image_upload(file_storage, label):
+    """Read and validate an uploaded image.
+
+    Returns (base64_str, mime) on success, or (None, error_response) on failure.
+    """
+    data = file_storage.read()
+    if len(data) > MAX_STAMP_BYTES:
+        return None, (jsonify({
+            'error': f'{label} is too large '
+                     f'({len(data) // 1024} KB). '
+                     f'Maximum is {MAX_STAMP_BYTES // 1024} KB.'
+        }), 400)
+    if not data:
+        return None, (jsonify({'error': f'{label} is empty.'}), 400)
+    mime = _sniff_image_mime(data)
+    if mime is None:
+        return None, (jsonify({
+            'error': f'{label} must be a PNG, JPEG, GIF, WebP or SVG image.'
+        }), 400)
+    return (base64.b64encode(data).decode('utf-8'), mime), None
+
+
 def _profile_json(p):
     return {
         'name': p.name,
         'tagline': p.tagline,
+        'logo_image': p.logo_image,
+        'logo_mime': p.logo_mime,
         'email': p.email,
         'phone': p.phone,
         'website': p.website,
@@ -66,6 +91,8 @@ def _profile_json(p):
         'default_terms': p.default_terms,
         'default_quotation_terms': p.default_quotation_terms,
         'default_due_days': p.default_due_days,
+        'invoice_pdf_theme': p.invoice_pdf_theme,
+        'quotation_pdf_theme': p.quotation_pdf_theme,
     }
 
 
@@ -76,6 +103,12 @@ def company_settings():
     return jsonify(_profile_json(profile))
 
 
+@settings_bp.route('/themes', methods=['GET'])
+@login_required
+def get_themes():
+    return jsonify(themes_json())
+
+
 @settings_bp.route('/', methods=['POST', 'PUT'])
 @login_required
 def update_settings():
@@ -84,9 +117,11 @@ def update_settings():
     if request.is_json:
         data = request.get_json(silent=True) or {}
         stamp_file = None
+        logo_file = None
     else:
         data = request.form
         stamp_file = request.files.get('stamp_image')
+        logo_file = request.files.get('logo_image')
 
     def g(key, default=''):
         return (data.get(key) if data.get(key) is not None else default)
@@ -111,24 +146,23 @@ def update_settings():
         profile.default_gst_percent = 18.0
     profile.default_terms = str(g('default_terms')).strip()
     profile.default_quotation_terms = str(g('default_quotation_terms')).strip()
+    profile.invoice_pdf_theme = str(g('invoice_pdf_theme', 'classic_gst')).strip()
+    profile.quotation_pdf_theme = str(g('quotation_pdf_theme', 'classic')).strip()
+
+    if logo_file and logo_file.filename:
+        result, error = _validate_image_upload(logo_file, 'Logo')
+        if error:
+            return error
+        profile.logo_image, profile.logo_mime = result
+    elif str(g('remove_logo', '')) == '1':
+        profile.logo_image = None
+        profile.logo_mime = None
 
     if stamp_file and stamp_file.filename:
-        stamp_data = stamp_file.read()
-        if len(stamp_data) > MAX_STAMP_BYTES:
-            return jsonify({
-                'error': f'Stamp image is too large '
-                         f'({len(stamp_data) // 1024} KB). '
-                         f'Maximum is {MAX_STAMP_BYTES // 1024} KB.'
-            }), 400
-        if not stamp_data:
-            return jsonify({'error': 'Stamp image is empty.'}), 400
-        mime = _sniff_image_mime(stamp_data)
-        if mime is None:
-            return jsonify({
-                'error': 'Stamp must be a PNG, JPEG, GIF, WebP or SVG image.'
-            }), 400
-        profile.stamp_image = base64.b64encode(stamp_data).decode('utf-8')
-        profile.stamp_mime = mime
+        result, error = _validate_image_upload(stamp_file, 'Stamp')
+        if error:
+            return error
+        profile.stamp_image, profile.stamp_mime = result
     elif str(g('remove_stamp', '')) == '1':
         profile.stamp_image = None
         profile.stamp_mime = None

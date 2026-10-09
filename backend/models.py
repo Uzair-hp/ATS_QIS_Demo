@@ -41,6 +41,8 @@ class CompanyProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, default='ATS Automation')
     tagline = db.Column(db.String(200), nullable=True, default='Security & Systems')
+    logo_image = db.Column(db.Text, nullable=True)  # Base64 encoded company logo/profile image
+    logo_mime = db.Column(db.String(30), nullable=True)
     email = db.Column(db.String(150), nullable=True)
     phone = db.Column(db.String(30), nullable=True)
     website = db.Column(db.String(200), nullable=True)
@@ -66,6 +68,9 @@ class CompanyProfile(db.Model):
     default_quotation_terms = db.Column(db.Text, nullable=True,
                                         default='This quotation is valid for 15 days from the date of issue. 50% advance payment is required to commence work.')
     default_due_days = db.Column(db.Integer, default=15)
+    # PDF theme selections
+    invoice_pdf_theme = db.Column(db.String(50), default='classic_gst')
+    quotation_pdf_theme = db.Column(db.String(50), default='classic')
 
     @staticmethod
     def get_profile():

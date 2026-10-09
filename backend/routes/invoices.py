@@ -16,6 +16,7 @@ from flask import (
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, CompanyProfile, now_ist, IST
 from routes.pdf_assets import get_pdf_assets
+from pdf_themes import resolve, INVOICE_THEMES, DEFAULT_INVOICE_THEME
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_due_days, validate_advance_amount, parse_item_quantity,
@@ -593,8 +594,10 @@ def download_pdf(id):
     profile = CompanyProfile.get_profile()
     qr_b64 = generate_upi_qr_base64(invoice.balance_due, invoice.invoice_number)
 
+    template_path = resolve(INVOICE_THEMES, profile.invoice_pdf_theme, DEFAULT_INVOICE_THEME)
+
     html_string = render_template(
-        'invoices/pdf_template.html',
+        template_path,
         invoice=invoice, qr_base64=qr_b64, profile=profile,
         **get_pdf_assets(),
     )

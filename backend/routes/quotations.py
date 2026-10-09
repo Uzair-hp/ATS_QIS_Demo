@@ -16,6 +16,7 @@ from flask import (
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem, CompanyProfile, now_ist, IST
 from routes.pdf_assets import get_pdf_assets
+from pdf_themes import resolve, QUOTATION_THEMES, DEFAULT_QUOTATION_THEME
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_valid_days, parse_item_quantity, parse_item_rate,
@@ -607,8 +608,10 @@ def download_pdf(id):
     quotation = Quotation.query.get_or_404(id)
     profile = CompanyProfile.get_profile()
 
+    template_path = resolve(QUOTATION_THEMES, profile.quotation_pdf_theme, DEFAULT_QUOTATION_THEME)
+
     html_string = render_template(
-        'quotations/pdf_template.html',
+        template_path,
         quotation=quotation,
         profile=profile,
         **get_pdf_assets(),

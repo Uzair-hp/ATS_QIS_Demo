@@ -25,9 +25,9 @@ fields: `valid_until`, `estimated_timeline`, 6-way `status`.
 
 | Key | Look | Use when |
 |---|---|---|
-| `classic_gst` | Original dense bordered layout | Default fallback, backwards compatible |
+| `classic_gst` | Original dense bordered layout | **Default.** Backwards compatible |
 | `t1_classic_gst` | Refined classic + amount-in-words + notes | CA / filing safety |
-| `t2_letterhead` | Blue band header, subject banner, blue footer | **Default.** Matches the Fortis Hospital reference |
+| `t2_letterhead` | Blue band header, subject banner, blue footer | Matches the Fortis Hospital reference |
 | `t3_minimal` | Hairlines, no boxes, heavy whitespace | Premium / white-glove service work |
 | `t4_corporate_slate` | Navy + status badges, card panels | Enterprise B2B clients |
 | `t5_compact_dense` | Tight leading, 40+ items/page | BOM-heavy site work |
@@ -42,8 +42,8 @@ fields: `valid_until`, `estimated_timeline`, 6-way `status`.
 
 | Key | Look |
 |---|---|
-| `classic` | Original layout — **still indigo `#4f46e5`, no GST/HSN.** Kept for reference only |
-| `q1_classic` | ATS blue, GST rows + HSN + subject/delivery/terms. **Default** |
+| `classic` | Original layout — **still indigo `#4f46e5`, no GST/HSN.** **Default**, so existing documents keep rendering identically |
+| `q1_classic` | ATS blue, GST rows + HSN + subject/delivery/terms |
 | `q2_proposal` | Navy pitch-style, timeline block, scope-first |
 | `q3_minimal` | Clean hairlines, ATS blue |
 | `q4_compact` | Dense single page for long lists (AMC renewals) |
