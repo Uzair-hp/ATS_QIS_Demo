@@ -53,7 +53,7 @@ export default function Layout({ title, breadcrumb, children }) {
           <img src={logo} alt="ATS Automation" />
           <div className="brand-text">
             <h6>ATS Automation</h6>
-            <small>Security &amp; Systems</small>
+            <small>Security & Systems</small>
           </div>
         </div>
 
