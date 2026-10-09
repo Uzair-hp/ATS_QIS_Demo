@@ -1,9 +1,9 @@
-﻿# ATS QIS â€” Quotation & Invoice System
+# ATS QIS — Quotation & Invoice System
 ### Complete User Guide & Technical Reference
 
 > **Version:** 1.0  
 > **Built by:** ATS Automation  
-> **Stack:** Python Â· Flask Â· SQLite Â· Bootstrap 5 Â· PWA  
+> **Stack:** Python · Flask · SQLite · Bootstrap 5 · PWA  
 > **Live URL:** [your-domain.com](https://your-domain.com)
 
 ---
@@ -22,7 +22,7 @@
 10. [Invoices](#invoices)
 11. [Settings](#settings)
 12. [PDF Generation](#pdf-generation)
-13. [Quotation â†’ Invoice Conversion](#quotation--invoice-conversion)
+13. [Quotation → Invoice Conversion](#quotation--invoice-conversion)
 14. [Numbering System](#numbering-system)
 15. [Status Reference](#status-reference)
 16. [Database Schema](#database-schema)
@@ -33,21 +33,21 @@
 
 ## Overview
 
-**ATS QIS** (Quotation & Invoice System) is a self-hosted, offline-capable web application designed for ATS Automation to manage the full client billing lifecycle â€” from creating professional quotations/proposals to generating, tracking, and exporting invoices.
+**ATS QIS** (Quotation & Invoice System) is a self-hosted, offline-capable web application designed for ATS Automation to manage the full client billing lifecycle — from creating professional quotations/proposals to generating, tracking, and exporting invoices.
 
 ### Core Features
 
 | Feature | Description |
 |---|---|
-| ðŸ§¾ **Quotations** | Create professional proposals with line items, discounts, validity dates, and timelines |
-| ðŸ§® **Invoices** | Generate GST-ready invoices linked to clients with payment tracking |
-| ðŸ‘¥ **Clients** | Manage a client directory with company, contact, and billing history |
-| ðŸ“¦ **Services** | Maintain a reusable service catalogue with base prices |
-| ðŸ”„ **Quotationâ†’Invoice** | Convert accepted quotations into invoices in one click |
-| ðŸ“„ **PDF Export** | Download professional branded PDFs for quotations and invoices |
-| ðŸ“Š **Dashboard** | At-a-glance revenue, pending, overdue, and draft summaries |
-| âš™ï¸ **Settings** | Configure company branding, bank details, UPI, and default terms |
-| ðŸ“± **PWA** | Install as an app on desktop or mobile via the browser |
+| 🧾 **Quotations** | Create professional proposals with line items, discounts, validity dates, and timelines |
+| 🧮 **Invoices** | Generate GST-ready invoices linked to clients with payment tracking |
+| 👥 **Clients** | Manage a client directory with company, contact, and billing history |
+| 📦 **Services** | Maintain a reusable service catalogue with base prices |
+| 🔄 **Quotation→Invoice** | Convert accepted quotations into invoices in one click |
+| 📄 **PDF Export** | Download professional branded PDFs for quotations and invoices |
+| 📊 **Dashboard** | At-a-glance revenue, pending, overdue, and draft summaries |
+| ⚙️ **Settings** | Configure company branding, bank details, UPI, and default terms |
+| 📱 **PWA** | Install as an app on desktop or mobile via the browser |
 
 ---
 
@@ -56,59 +56,67 @@
 - **Python** 3.10 or newer
 - **pip** (Python package manager)
 - **Windows / Linux / macOS**
+- **Node.js** 18 or newer (only to build the frontend; the released bundle runs without it)
 - A modern web browser (Chrome, Edge, Firefox, Safari)
-- No internet required after installation (fully offline)
+
+After `npm run build` the app runs entirely offline. During development the
+frontend is served by Vite, which needs Node.js running locally.
 
 ---
 
 ## Installation & Setup
 
-### Step 1 â€” Clone / Download the Project
+### Step 1 � Clone / Download the Project
 
-Place the `ims` folder anywhere on your machine, for example:
+Place the `ATS-QIS` folder anywhere on your machine, for example:
 ```
-C:\Users\offic\Desktop\ATS Automation\ims\
+D:\Brightlant-Work\ATS-QIS\
 ```
 
-### Step 2 â€” Create a Virtual Environment
+### Step 2 � Create a Virtual Environment
 
 Open PowerShell inside the project folder and run:
 
 ```powershell
-python -m venv venv
+python -m venv .venv
 ```
 
-### Step 3 â€” Activate the Virtual Environment
+### Step 3 — Activate the Virtual Environment
 
 ```powershell
 # Windows PowerShell
-.\venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
 # Windows CMD
-venv\Scripts\activate.bat
+.venv\Scripts\activate.bat
 
 # macOS / Linux
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
-### Step 4 â€” Install Dependencies
+### Step 4 � Install Dependencies
 
 ```powershell
+cd backend
 pip install -r requirements.txt
+
+cd ../frontend
+npm install
 ```
 
-Dependencies installed:
+Backend dependencies:
 | Package | Purpose |
 |---|---|
-| `Flask` | Web framework |
+| `Flask` | Web framework (REST API) |
 | `Flask-SQLAlchemy` | ORM / database layer |
 | `Flask-Login` | Session-based authentication |
 | `Werkzeug` | Password hashing, utilities |
 | `qrcode[pil]` | QR code generation on invoices |
-| `xhtml2pdf` | HTML â†’ PDF conversion |
+| `xhtml2pdf` | HTML ? PDF conversion (server-side PDFs) |
 | `python-dotenv` | Load `.env` config file |
+| `pytest` | Test suite (`cd backend; pytest`) |
 
-### Step 5 â€” Environment Variables (Optional)
+### Step 5 — Environment Variables (Optional)
 
 Copy `.env.example` to `.env` and set your own secret key for production:
 
@@ -123,24 +131,52 @@ FLASK_ENV=development
 
 ## Running the Application
 
+### Development (two processes)
+
 ```powershell
-# Make sure your venv is activated first
+# Terminal 1 � API on :5000
+cd backend
+python app.py
+
+# Terminal 2 � Vite dev server on :3000, proxies /api to :5000
+cd frontend
+npm run dev
+```
+
+Open **http://localhost:3000/app/**. The Vite dev server hot-reloads on save, so
+you only rebuild for production.
+
+The API server will automatically:
+- Create the SQLite database at `backend/instance/ats.db`
+- Run any pending column migrations
+- Create the default company profile and admin user
+
+Press **Ctrl + C** in each terminal to stop.
+
+### Single-process (production-style)
+
+```powershell
+cd frontend
+npm run build        # outputs to frontend/dist
+cd ../backend
 python app.py
 ```
 
-The server starts at: **http://127.0.0.1:5000**
+Flask serves the built SPA under **http://127.0.0.1:5000/app/**, so one
+process serves both the API and the interface.
 
-Open this URL in your browser. The app will automatically:
-- Create the SQLite database at `instance/ats.db`
-- Create the default company profile
-- Create the default admin user
+### Running the tests
 
-To stop the server press **Ctrl + C** in the terminal.
+```powershell
+cd backend  && pytest        # 40 tests: totals, PDFs, CSV, settings
+cd frontend && npm test       # 41 tests: print-sheet totals and mapping
+```
 
 ### Production (Hosted)
 
-The app can be deployed to your preferred hosting platform.  
-Configure your domain and WSGI server (e.g., Gunicorn, uWSGI) accordingly.
+The app can be deployed to your preferred hosting platform. Build the frontend
+first (`npm run build`), point the WSGI server at `backend/wsgi.py`, and set
+`SECRET_KEY` and `FLASK_ENV=production` in the environment.
 
 ---
 
@@ -151,11 +187,11 @@ Configure your domain and WSGI server (e.g., Gunicorn, uWSGI) accordingly.
 | Field | Value |
 |---|---|
 | **Username** | `admin` |
-| **Password** | `ats2024` |
+| **Password** | `ats@2026` |
 
-> âš ï¸ Change your password after first login (currently via database or by modifying `app.py`).
+> ?? Change your password after first login (Settings ? Change Password).
 
-All pages require login. Unauthenticated users are automatically redirected to the login page at `/auth/login`.
+All pages require login. Unauthenticated users are automatically redirected to the login page at `/app/login`.
 
 ---
 
@@ -167,14 +203,14 @@ The dashboard provides a real-time summary of your business health:
 
 | Metric Card | What it Shows |
 |---|---|
-| ðŸ’° **Total Revenue** | Sum of all paid invoices |
-| â³ **Pending** | Sum of unpaid (non-overdue) invoices |
-| ðŸ”´ **Overdue** | Sum of invoices past their due date |
-| ðŸ“ **Draft Quotations** | Count of quotations in Draft status |
+| 💰 **Total Revenue** | Sum of all paid invoices |
+| ⏳ **Pending** | Sum of unpaid (non-overdue) invoices |
+| 🔴 **Overdue** | Sum of invoices past their due date |
+| 📝 **Draft Quotations** | Count of quotations in Draft status |
 
 Below the metric cards you'll find:
-- **Recent Quotations** â€” Latest 5 quotations with status badges
-- **Recent Invoices** â€” Latest 5 invoices with amounts and status
+- **Recent Quotations** — Latest 5 quotations with status badges
+- **Recent Invoices** — Latest 5 invoices with amounts and status
 
 ---
 
@@ -198,7 +234,7 @@ Click the **Edit** (pencil) icon on the client's row.
 
 | Field | Required | Description |
 |---|---|---|
-| Name | âœ… Yes | Contact person's full name |
+| Name | ✅ Yes | Contact person's full name |
 | Company Name | No | Business / organization name |
 | Email | No | Client's email address |
 | Phone | No | Contact number |
@@ -219,7 +255,7 @@ Services are a reusable catalogue of work items that can be quickly added as lin
 4. Click **Save**
 
 ### Using Services
-When creating a quotation or invoice, click **"Add from Catalogue"** to pick a service â€” its name and base price will auto-fill the line item. You can override the rate per document.
+When creating a quotation or invoice, click **"Add from Catalogue"** to pick a service — its name and base price will auto-fill the line item. You can override the rate per document.
 
 ---
 
@@ -230,34 +266,34 @@ When creating a quotation or invoice, click **"Add from Catalogue"** to pick a s
 ### Creating a Quotation
 1. Click **"New Quotation"** in the sidebar or the list page
 2. Fill in the header details:
-   - **Client** â€” Select from your client list
-   - **Quotation Date** â€” Defaults to today
-   - **Valid Until** â€” Expiry date for the quotation
-   - **Estimated Timeline** â€” e.g., "2â€“3 weeks"
-   - **Notes** â€” Internal or client-facing notes
+   - **Client** — Select from your client list
+   - **Quotation Date** — Defaults to today
+   - **Valid Until** — Expiry date for the quotation
+   - **Estimated Timeline** — e.g., "2–3 weeks"
+   - **Notes** — Internal or client-facing notes
 3. Add line items using the **"Add Item"** button or **"Add from Catalogue"**
-4. Optionally apply a **Discount** (flat â‚¹ amount or percentage)
+4. Optionally apply a **Discount** (flat ₹ amount or percentage)
 5. Click **Save Quotation**
 
 ### Quotation Number Format
 Quotations are automatically numbered:
 ```
-BL-QT-YYYY-NNN
+ATS-QT-YYYY-NNN
 ```
-Example: `BL-QT-2026-001`
+Example: `ATS-QT-2026-001`
 
-Revised quotations get a suffix: `BL-QT-2026-001-R1`, `BL-QT-2026-001-R2`, etc.
+Revised quotations get a suffix: `ATS-QT-2026-001-R1`, `ATS-QT-2026-001-R2`, etc.
 
 ### Quotation Statuses
 
 | Status | Meaning |
 |---|---|
-| ðŸ”µ **Draft** | Just created, not yet sent to client |
-| ðŸ“¤ **Sent** | Shared with client, awaiting response |
-| âœ… **Accepted** | Client has approved the quotation |
-| âŒ **Declined** | Client rejected the quotation |
-| ðŸ” **Invoiced** | Converted into an invoice |
-| â° **Expired** | Valid-until date has passed |
+| 🔵 **Draft** | Just created, not yet sent to client |
+| 📤 **Sent** | Shared with client, awaiting response |
+| ✅ **Accepted** | Client has approved the quotation |
+| ❌ **Declined** | Client rejected the quotation |
+| 🔁 **Invoiced** | Converted into an invoice |
+| ⏰ **Expired** | Valid-until date has passed |
 
 ### Quotation Actions
 
@@ -281,30 +317,30 @@ Revised quotations get a suffix: `BL-QT-2026-001-R1`, `BL-QT-2026-001-R2`, etc.
 ### Creating an Invoice
 1. Click **"New Invoice"** in the sidebar
 2. Fill in:
-   - **Client** â€” Select from your client list
-   - **Invoice Date** â€” Defaults to today
-   - **Due Date** â€” Auto-calculated based on company default (15 days), editable
-   - **Payment Mode** â€” Cash, Bank Transfer, UPI, Cheque, etc.
-   - **Reference Quotation** â€” Optional quotation number linkage
-   - **Notes** â€” Payment instructions or special notes
+   - **Client** — Select from your client list
+   - **Invoice Date** — Defaults to today
+   - **Due Date** — Auto-calculated based on company default (15 days), editable
+   - **Payment Mode** — Cash, Bank Transfer, UPI, Cheque, etc.
+   - **Reference Quotation** — Optional quotation number linkage
+   - **Notes** — Payment instructions or special notes
 3. Add line items with service name, description, quantity, and rate
 4. Optionally add a **Discount** and **Advance Payment** received
 5. Click **Save Invoice**
 
 ### Invoice Number Format
 ```
-BL-INV-YYYY-NNN
+ATS-INV-YYYY-NNN
 ```
-Example: `BL-INV-2026-001`
+Example: `ATS-INV-2026-001`
 
 ### Invoice Statuses
 
 | Status | Meaning |
 |---|---|
-| â³ **Pending** | Invoice issued, payment not yet received |
-| âœ… **Paid** | Full payment received |
-| ðŸ”´ **Overdue** | Past due date, payment not received |
-| âŒ **Cancelled** | Invoice voided |
+| ⏳ **Pending** | Invoice issued, payment not yet received |
+| ✅ **Paid** | Full payment received |
+| 🔴 **Overdue** | Past due date, payment not received |
+| ❌ **Cancelled** | Invoice voided |
 
 ### Invoice Actions
 
@@ -324,10 +360,10 @@ Every invoice shows:
 ```
 Sub Total
 - Discount (flat or %)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+─────────────────────
 = Total Amount
 - Advance Received
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+─────────────────────
 = Balance Due
 ```
 
@@ -369,37 +405,57 @@ Configure your company's information that appears on all PDFs and documents.
 
 ## PDF Generation
 
-Both quotations and invoices can be exported as professional PDFs.
+Every document can be produced two ways. Both are supported; they differ in
+where the layout is defined.
+
+### 1. Print / Save as PDF (browser, quotations)
+
+The recommended option for quotations. The layout lives in the React app and is
+measured against the FORTIS HOSPITAL reference sheet:
+
+- `frontend/src/styles/print.css` � the A4 sheet, every offset in millimetres
+- `frontend/src/components/print/` � header, party details, items, totals,
+  bank block, signature, footer
+- `frontend/src/lib/quotation.js` � totals maths, kept in step with the API
+- `frontend/src/lib/geometry.js` � the measured column positions
+
+Open a quotation ? **Print / Save as PDF** ? choose "Save as PDF" in the browser
+dialog. Open `/app/quotations/<id>/print` directly to see the bare sheet.
+
+### 2. Download PDF (server)
+
+Generated by the backend with `xhtml2pdf` from
+`backend/templates/{quotations,invoices}/pdf_template.html`. This works
+headlessly and for invoices.
 
 ### What's Included in a Quotation PDF
-- Company logo & details
-- Client information
-- Quotation number, date, validity
-- Estimated timeline
-- Line items table (service, description, qty, rate, amount)
-- Subtotal, discount, total
-- Terms & Conditions
+- Company logo & details, and the company stamp if one is uploaded
+- Client information with client GSTIN
+- Quotation number, date, validity, estimated timeline, payment terms
+- Line items table (service, description, HSN, qty, rate, amount)
+- Subtotal, discount, GST, grand total
+- Bank details, GSTIN and MSME number
+- Signature block and terms
 
 ### What's Included in an Invoice PDF
-- Company logo & details
+- Company logo & details, and the company stamp if one is uploaded
 - Client information
 - Invoice number, date, due date
 - Reference quotation number (if any)
-- Line items table
-- Subtotal, discount, total, advance, balance due
+- Line items table with HSN codes
+- Subtotal, discount, GST, total, advance, balance due
 - Payment mode
 - UPI QR Code (generated automatically from UPI ID)
 - Bank transfer details
 - Notes & Terms
 
 ### How to Download a PDF
-1. Open any quotation or invoice
-2. Click the **"Download PDF"** button
-3. The PDF is generated and downloaded instantly
+- **Print / Save as PDF** � open the quotation and click the print button
+- **Download PDF** � open the document and click **"Download PDF"**
 
 ---
 
-## Quotation â†’ Invoice Conversion
+## Quotation → Invoice Conversion
 
 One of the most powerful features: convert an accepted quotation into an invoice in one click.
 
@@ -408,7 +464,7 @@ One of the most powerful features: convert an accepted quotation into an invoice
 2. Click **"Convert to Invoice"**
 3. Review the pre-filled invoice (all line items, client, amounts are carried over)
 4. Adjust due date, payment mode, advance amount if needed
-5. Save â€” the quotation status automatically changes to **Invoiced**
+5. Save — the quotation status automatically changes to **Invoiced**
 
 The invoice will store the originating quotation number in the `ref_quotation_number` field for traceability.
 
@@ -418,9 +474,9 @@ The invoice will store the originating quotation number in the `ref_quotation_nu
 
 | Document | Format | Example |
 |---|---|---|
-| Quotation | `BL-QT-YYYY-NNN` | `BL-QT-2026-001` |
-| Quotation Revision | `BL-QT-YYYY-NNN-RN` | `BL-QT-2026-001-R2` |
-| Invoice | `BL-INV-YYYY-NNN` | `BL-INV-2026-001` |
+| Quotation | `ATS-QT-YYYY-NNN` | `ATS-QT-2026-001` |
+| Quotation Revision | `ATS-QT-YYYY-NNN-RN` | `ATS-QT-2026-001-R2` |
+| Invoice | `ATS-INV-YYYY-NNN` | `ATS-INV-2026-001` |
 
 Numbers are auto-generated sequentially within the current calendar year. The sequence never goes backwards, even if records are deleted.
 
@@ -430,15 +486,15 @@ Numbers are auto-generated sequentially within the current calendar year. The se
 
 ### Quotation Statuses
 ```
-Draft â†’ Sent â†’ Accepted â†’ Invoiced
-                â†˜ Declined
+Draft → Sent → Accepted → Invoiced
+                ↘ Declined
          (auto) Expired
 ```
 
 ### Invoice Statuses
 ```
-Pending â†’ Paid
-        â†˜ Cancelled
+Pending → Paid
+        ↘ Cancelled
 (auto)  Overdue (when past due date)
 ```
 
@@ -446,7 +502,7 @@ Pending â†’ Paid
 
 ## Database Schema
 
-The application uses **SQLite** stored at `instance/ats.db`.
+The application uses **SQLite** stored at `backend/instance/ats.db`.
 
 ### Tables
 
@@ -484,14 +540,14 @@ Singleton table (always 1 row) storing company settings.
 |---|---|---|
 | id | INTEGER | Primary key |
 | quotation_number | VARCHAR(50) | Unique auto-generated number |
-| client_id | INTEGER | Foreign key â†’ clients |
+| client_id | INTEGER | Foreign key → clients |
 | date_created | DATETIME | Creation date (IST) |
 | valid_until | DATETIME | Expiry date |
 | estimated_timeline | VARCHAR(100) | Project timeline estimate |
 | sub_total | FLOAT | Sum of line items |
 | discount | FLOAT | Discount value entered |
 | discount_type | VARCHAR(10) | `flat` or `percent` |
-| discount_amount | FLOAT | Calculated â‚¹ discount |
+| discount_amount | FLOAT | Calculated ₹ discount |
 | total_amount | FLOAT | Final total |
 | status | VARCHAR(20) | Current status |
 | notes | TEXT | Additional notes |
@@ -501,25 +557,25 @@ Singleton table (always 1 row) storing company settings.
 | Column | Type | Description |
 |---|---|---|
 | id | INTEGER | Primary key |
-| quotation_id | INTEGER | Foreign key â†’ quotations |
+| quotation_id | INTEGER | Foreign key → quotations |
 | service_name | VARCHAR(200) | Item name |
 | description | TEXT | Item description |
 | quantity | FLOAT | Quantity |
 | rate | FLOAT | Rate per unit |
-| amount | FLOAT | qty Ã— rate |
+| amount | FLOAT | qty × rate |
 
 #### `invoices`
 | Column | Type | Description |
 |---|---|---|
 | id | INTEGER | Primary key |
 | invoice_number | VARCHAR(50) | Unique auto-generated number |
-| client_id | INTEGER | Foreign key â†’ clients |
+| client_id | INTEGER | Foreign key → clients |
 | date_created | DATETIME | Invoice date (IST) |
 | due_date | DATETIME | Payment due date |
 | sub_total | FLOAT | Sum of line items |
 | discount | FLOAT | Discount value entered |
 | discount_type | VARCHAR(10) | `flat` or `percent` |
-| discount_amount | FLOAT | Calculated â‚¹ discount |
+| discount_amount | FLOAT | Calculated ₹ discount |
 | total_amount | FLOAT | Final total |
 | advance_amount | FLOAT | Advance payment received |
 | status | VARCHAR(20) | Current status |
@@ -536,43 +592,48 @@ Same structure as `quotation_items` but linked to `invoices`.
 ## Project Structure
 
 ```
-ims/
-â”œâ”€â”€ app.py                  # Application factory & entry point
-â”œâ”€â”€ config.py               # Configuration (dev / production)
-â”œâ”€â”€ models.py               # SQLAlchemy database models
-â”œâ”€â”€ wsgi.py                 # WSGI entry point for production
-â”œâ”€â”€ requirements.txt        # Python dependencies
-â”œâ”€â”€ .env.example            # Environment variable template
-â”œâ”€â”€ .gitignore
-â”‚
-â”œâ”€â”€ routes/
-â”‚   â”œâ”€â”€ auth.py             # Login / logout
-â”‚   â”œâ”€â”€ dashboard.py        # Dashboard metrics
-â”‚   â”œâ”€â”€ clients.py          # Client CRUD
-â”‚   â”œâ”€â”€ services.py         # Service catalogue CRUD
-â”‚   â”œâ”€â”€ quotations.py       # Quotation CRUD + PDF + status
-â”‚   â”œâ”€â”€ invoices.py         # Invoice CRUD + PDF + QR + CSV
-â”‚   â””â”€â”€ settings.py         # Company settings
-â”‚
-â”œâ”€â”€ templates/
-â”‚   â”œâ”€â”€ base.html           # Master layout (sidebar, navbar, theme)
-â”‚   â”œâ”€â”€ auth/               # Login page
-â”‚   â”œâ”€â”€ dashboard/          # Dashboard page
-â”‚   â”œâ”€â”€ clients/            # Client list, create, edit
-â”‚   â”œâ”€â”€ services/           # Service list, create, edit
-â”‚   â”œâ”€â”€ quotations/         # Quotation list, create, view, edit, PDF
-â”‚   â””â”€â”€ invoices/           # Invoice list, create, view, edit, PDF
-â”‚
-â”œâ”€â”€ static/
-â”‚   â”œâ”€â”€ css/style.css       # Global application styles
-â”‚   â”œâ”€â”€ js/app.js           # Theme toggle, toast, interactions
-â”‚   â”œâ”€â”€ js/sw.js            # PWA Service Worker
-â”‚   â”œâ”€â”€ manifest.json       # PWA manifest
-â”‚   â””â”€â”€ img/logo.png        # Company logo
-â”‚
-â””â”€â”€ instance/
-    â””â”€â”€ ats.db       # SQLite database (auto-created)
+ATS-QIS/
++-- backend/                     Flask REST API (JSON only)
+�   +-- app.py                   Application factory, migrations, SPA serving
+�   +-- config.py                Configuration (dev / production)
+�   +-- models.py                SQLAlchemy database models
+�   +-- wsgi.py                  WSGI entry point for production
+�   +-- requirements.txt         Python dependencies
+�   +-- routes/
+�   �   +-- auth.py              Login / logout
+�   �   +-- dashboard.py         Dashboard metrics
+�   �   +-- clients.py           Client CRUD + CSV export
+�   �   +-- services.py          Service catalogue CRUD
+�   �   +-- quotations.py        Quotation CRUD + PDF + CSV + convert
+�   �   +-- invoices.py          Invoice CRUD + PDF + QR + CSV
+�   �   +-- settings.py          Company settings incl. stamp upload
+�   �   +-- validation.py        Shared input validation
+�   +-- templates/               PDF templates ONLY (no page templates)
+�   �   +-- invoices/pdf_template.html
+�   �   +-- quotations/pdf_template.html
+�   +-- static/                  logo, PWA manifest + service worker
+�   +-- tests/                   pytest suite
+�   +-- instance/
+�       +-- ats.db               SQLite database (auto-created)
+�
++-- frontend/                    React 18 SPA (Vite)
+�   +-- vite.config.js           base '/app/', dev proxy to :5000
+�   +-- public/assets/           logo.png, watermark.svg
+�   +-- src/
+�       +-- api/client.js        Axios instance (baseURL /api)
+�       +-- components/          Layout, ProtectedRoute, print/ sheet parts
+�       +-- context/             AuthContext, ToastContext
+�       +-- lib/                 quotation.js totals, mappers, geometry
+�       +-- pages/               One file per screen
+�       +-- styles/              style.css (app) + print.css (A4 sheet)
+�
++-- .env / .env.example
++-- .gitignore
 ```
+
+The old server-rendered page templates are gone. `backend/templates/` now holds
+only the two PDF templates, and every screen is a React page under
+`frontend/src/pages/`.
 
 ---
 
@@ -591,13 +652,13 @@ with app.app_context():
 ```
 
 **Q: How do I back up my data?**  
-A: Copy the file `instance/ats.db` to a safe location. This single file contains all your data.
+A: Copy the file `backend/instance/ats.db` to a safe location. This single file contains all your data.
 
 **Q: Can I run this on a server so multiple people can access it?**  
 A: Yes. Set `FLASK_ENV=production` in your `.env` file and deploy using a WSGI server (e.g., Gunicorn on Linux). Use the provided `wsgi.py` as the entry point.
 
 **Q: How do I change the company logo on PDFs?**  
-A: Replace the file `static/img/logo.png` with your own logo (keep the same filename). Recommended size: 200Ã—200px or smaller PNG.
+A: Replace the file `static/img/logo.png` with your own logo (keep the same filename). Recommended size: 200×200px or smaller PNG.
 
 **Q: What happens when I archive a client?**  
 A: They are hidden from the active client list but their data is preserved. Existing invoices and quotations remain untouched.
@@ -608,8 +669,17 @@ A: Yes. Inside any invoice view, click **"Export CSV"** to download invoice data
 **Q: What is the PWA feature?**  
 A: When you open the app in Chrome or Edge, you'll see an "Install App" option in the browser's address bar. This lets you install QIS as a desktop app that opens without browser chrome, like a native application.
 
-**Q: The PDF looks different from the on-screen view â€” is that normal?**  
-A: Yes. PDFs are generated using `xhtml2pdf`, which uses a separate rendering engine. The layout is specifically designed for print/PDF and will look slightly different from the web view, but contains all the same information.
+**Q: Why do the two "print" options look different?**  
+A: They are two different layouts. **Print / Save as PDF** renders the React
+quotation sheet through the browser's own print engine, which is why it matches
+the FORTIS HOSPITAL reference closely. **Download PDF** is rendered on the
+server by `xhtml2pdf`, a limited engine that only supports a subset of CSS — no
+SVG, no CSS gradients — so it looks plainer. Both carry the same figures.
+
+**Q: The stamp did not appear on my PDF.**  
+A: The stamp is only printed once you upload one under Settings → Stamp / Seal
+Image. There is no built-in fallback stamp, deliberately: a bundled ATS seal
+would otherwise appear on any company profile that has not uploaded its own.
 
 ---
 
@@ -618,10 +688,10 @@ A: Yes. PDFs are generated using `xhtml2pdf`, which uses a separate rendering en
 - **App developed by:** ATS Automation
 - **Live URL:** [your-domain.com](https://your-domain.com)
 - **Hosting Platform:** Your preferred platform
-- **Database location:** `instance/ats.db`
+- **Database location:** `backend/instance/ats.db`
 - **Logs:** Run with `FLASK_ENV=development` to see detailed error logs in the terminal
-- **Port:** Default `5000` (local) â€” change in `app.py` if needed
+- **Port:** Default `5000` (local) — change in `app.py` if needed
 
 ---
 
-*ATS QIS â€” Built with â¤ï¸ by ATS Automation*
+*ATS QIS — Built with ❤️ by ATS Automation*

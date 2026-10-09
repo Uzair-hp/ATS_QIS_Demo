@@ -132,6 +132,7 @@ def create_app():
     from routes.invoices import invoices_bp
     from routes.quotations import quotations_bp
     from routes.settings import settings_bp
+    from routes.letterhead import letterhead_bp
     from routes.auth import auth_bp
 
     app.register_blueprint(dashboard_bp, url_prefix='/api')
@@ -140,6 +141,7 @@ def create_app():
     app.register_blueprint(invoices_bp, url_prefix='/api/invoices')
     app.register_blueprint(quotations_bp, url_prefix='/api/quotations')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    app.register_blueprint(letterhead_bp, url_prefix='/api/letterhead')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
     # Static + manifest endpoints (used by PDF templates / PWA assets)
@@ -206,6 +208,7 @@ def create_app():
             "ALTER TABLE company_profile ADD COLUMN gst_number VARCHAR(50)",
             "ALTER TABLE company_profile ADD COLUMN msme_number VARCHAR(100)",
             "ALTER TABLE company_profile ADD COLUMN stamp_image TEXT",
+            "ALTER TABLE company_profile ADD COLUMN stamp_mime VARCHAR(30)",
             "ALTER TABLE company_profile ADD COLUMN default_gst_percent FLOAT DEFAULT 18.0",
             "ALTER TABLE company_profile ADD COLUMN website VARCHAR(200)",
             "ALTER TABLE clients ADD COLUMN gst_number VARCHAR(50)",

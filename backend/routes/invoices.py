@@ -15,6 +15,7 @@ from flask import (
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, CompanyProfile, now_ist, IST
+from routes.pdf_assets import get_pdf_assets
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_due_days, validate_advance_amount, parse_item_quantity,
@@ -52,14 +53,6 @@ def generate_invoice_number():
         else:
             seq = 1
     return f'ATS-INV-{year}-{seq:03d}'
-
-
-def get_logo_base64():
-    logo_path = os.path.join(current_app.static_folder, 'img', 'logo.png')
-    if os.path.exists(logo_path):
-        with open(logo_path, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
-    return ''
 
 
 def generate_upi_qr_base64(amount, invoice_number):
@@ -214,18 +207,38 @@ def export_invoices():
 
     si = io.StringIO()
     cw = csv.writer(si)
-    cw.writerow(['Invoice Number', 'Client Name', 'Date Created', 'Due Date', 'Total Amount', 'Amount Received', 'Balance Due', 'Status'])
+    cw.writerow([
+        'Invoice Number', 'Client Name', 'Client Company', 'Subject',
+        'Date Created', 'Due Date', 'Voucher Number', 'Reference Quotation',
+        'Sub Total', 'Discount', 'Discount Type', 'Discount Amount',
+        'GST %', 'GST Amount', 'Total Amount', 'Amount Received',
+        'Balance Due', 'Payment Mode', 'Payment Terms', 'Delivery Address',
+        'Status',
+    ])
 
     for inv in invoices:
         due_date = inv.due_date.strftime('%Y-%m-%d') if inv.due_date else ''
         cw.writerow([
             inv.invoice_number,
             inv.client.name if inv.client else '',
+            inv.client.company_name if inv.client else '',
+            inv.subject or '',
             inv.date_created.strftime('%Y-%m-%d'),
             due_date,
+            inv.voucher_number or '',
+            inv.ref_quotation_number or '',
+            f"{inv.sub_total:.2f}",
+            f"{inv.discount:.2f}",
+            inv.discount_type or '',
+            f"{inv.discount_amount:.2f}",
+            f"{inv.gst_percent:g}",
+            f"{inv.gst_amount:.2f}",
             f"{inv.total_amount:.2f}",
             f"{inv.advance_amount:.2f}",
             f"{inv.balance_due:.2f}",
+            inv.payment_mode or '',
+            inv.payment_terms or '',
+            inv.delivery_address or '',
             inv.status
         ])
 
@@ -403,7 +416,7 @@ def view_invoice(id):
     return jsonify({
         **_invoice_json(invoice, detailed=True),
         'qr_base64': qr_b64,
-        'logo_base64': get_logo_base64(),
+        'logo_base64': get_pdf_assets()['logo_base64'],
         'whatsapp_url': whatsapp_url,
         'email_url': email_url,
         'profile': {
@@ -579,12 +592,11 @@ def download_pdf(id):
     invoice = Invoice.query.get_or_404(id)
     profile = CompanyProfile.get_profile()
     qr_b64 = generate_upi_qr_base64(invoice.balance_due, invoice.invoice_number)
-    logo_b64 = get_logo_base64()
 
     html_string = render_template(
         'invoices/pdf_template.html',
-        invoice=invoice, qr_base64=qr_b64,
-        logo_base64=logo_b64, profile=profile,
+        invoice=invoice, qr_base64=qr_b64, profile=profile,
+        **get_pdf_assets(),
     )
 
     try:

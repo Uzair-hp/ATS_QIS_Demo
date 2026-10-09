@@ -56,6 +56,9 @@ class CompanyProfile(db.Model):
     gst_number = db.Column(db.String(50), nullable=True)
     msme_number = db.Column(db.String(100), nullable=True)
     stamp_image = db.Column(db.Text, nullable=True)  # Base64 encoded stamp/seal image
+    # Sniffed from the upload's magic bytes at save time. Never trust the
+    # browser-supplied content type: this value is embedded in a data URI.
+    stamp_mime = db.Column(db.String(30), nullable=True)
     # Defaults
     default_gst_percent = db.Column(db.Float, default=18.0)
     default_terms = db.Column(db.Text, nullable=True,

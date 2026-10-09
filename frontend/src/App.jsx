@@ -13,6 +13,7 @@ import QuotationsList from './pages/QuotationsList'
 import QuotationForm from './pages/QuotationForm'
 import QuotationView from './pages/QuotationView'
 import QuotationPrintPage from './pages/QuotationPrintPage'
+import InvoicePrintPage from './pages/InvoicePrintPage'
 import Settings from './pages/Settings'
 import Help from './pages/Help'
 import { useAuth } from './context/AuthContext'
@@ -33,15 +34,12 @@ export default function App() {
       <Route path="/invoices/create" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
       <Route path="/invoices/edit/:id" element={<ProtectedRoute><InvoiceForm /></ProtectedRoute>} />
       <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceView /></ProtectedRoute>} />
+      <Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrintPage /></ProtectedRoute>} />
       <Route path="/quotations" element={<ProtectedRoute><QuotationsList /></ProtectedRoute>} />
       <Route path="/quotations/create" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
       <Route path="/quotations/edit/:id" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
       <Route path="/quotations/:id" element={<ProtectedRoute><QuotationView /></ProtectedRoute>} />
       <Route path="/quotations/:id/print" element={<ProtectedRoute><QuotationPrintPage /></ProtectedRoute>} />
-      {/* Sample preview: no id, so the page renders the checked-in FORTIS
-          HOSPITAL sample. A static segment outranks :id in the matcher, the
-          same way /quotations/create already does. */}
-      <Route path="/quotations/print" element={<ProtectedRoute><QuotationPrintPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

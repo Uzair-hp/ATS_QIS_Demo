@@ -8,26 +8,29 @@ import Footer from './print/Footer'
 import { computeTotals } from '../lib/quotation'
 
 /**
- * Renders the A4 quotation/invoice sheet from a single `quotation` object.
- * No value is hardcoded here - every figure, label and contact detail comes
- * from props, and every total is derived in `computeTotals`.
+ * Renders the A4 document sheet from a single `document` object. The same
+ * layout serves quotations and invoices - the mapper decides the only real
+ * differences (docLabel, voucherNo, title).
+ *
+ * No value is hardcoded here: every figure, label and contact detail comes from
+ * props, and every total is derived in `computeTotals`.
  */
-export default function QuotationPrint({ quotation }) {
-  const totals = computeTotals(quotation)
+export default function DocumentPrint({ document }) {
+  const totals = computeTotals(document)
 
   return (
     <div className="qp-sheet-wrap">
       <div className="qp-sheet">
         <div className="qp-watermark" aria-hidden="true" />
 
-        <Header quotation={quotation} />
+        <Header quotation={document} />
 
         <div className="qp-title-area">
-          <h1 className="qp-title">{quotation.title}</h1>
+          <h1 className="qp-title">{document.title}</h1>
         </div>
 
         <div className="qp-sec qp-sec-info">
-          <PartyDetails quotation={quotation} />
+          <PartyDetails quotation={document} />
         </div>
 
         <div className="qp-sec qp-sec-items">
@@ -36,14 +39,14 @@ export default function QuotationPrint({ quotation }) {
 
         <div className="qp-sec qp-sec-totals">
           <Totals totals={totals} />
-          <BankDetails quotation={quotation} totals={totals} />
+          <BankDetails quotation={document} totals={totals} />
         </div>
 
         <div className="qp-sec qp-sec-sig">
-          <SignatureBlock quotation={quotation} />
+          <SignatureBlock quotation={document} />
         </div>
 
-        <Footer quotation={quotation} />
+        <Footer quotation={document} />
       </div>
     </div>
   )

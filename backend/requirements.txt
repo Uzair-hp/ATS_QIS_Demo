@@ -7,3 +7,6 @@ xhtml2pdf
 python-dotenv
 
 flask-cors
+
+# tests
+pytest

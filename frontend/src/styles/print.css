@@ -4,9 +4,16 @@
    Every number below was measured from FORTIS HOSPITAL_page-0001.jpg at
    300 dpi (11.845 px/mm). Do not "tidy" them; they are the spec.
 
-   Sections are absolutely positioned at their measured y offset so a longer
-   or shorter item list can never push the totals, signature box or footer
-   out of place.
+   The measured y offsets are expressed as margin-tops on a normally-flowing
+   sheet. Only the items section may grow: its rows carry `break-inside: avoid`
+   and its <thead> repeats, so a quotation with many line items, or any
+   quotation carrying a discount (two extra totals rows), paginates instead of
+   clipping. Everything else is an atomic block - see the `break-inside: avoid`
+   group in the print rules at the foot of this file.
+
+   The vertical budget for the standard case totals ~295.7mm against A4's
+   297mm, so the slack is roughly 1mm. Adding rows will therefore reach a
+   second page; that page repeats the banner and footer via `position: fixed`.
 
    Type sizes were fitted by rendering each measured string with PIL against
    the real Calibri / Cambria / Arial files and matching the ink width
@@ -134,7 +141,9 @@
 }
 .qp-sec-items {
   margin-top: 0.509mm; /* 81.89 - 48.628 - 32.753 */
-  min-height: 56.74mm; /* 138.63 - 81.89: preserves the measured gap for the standard case */
+  /* A floor, not a cap: it holds the measured gap for a short quotation and the
+     section grows past it when the item list is longer. */
+  min-height: 56.74mm; /* 138.63 - 81.89 */
 }
 .qp-sec-totals {
   /* follows the items section naturally in flow */
@@ -143,7 +152,10 @@
   margin-top: 0.5mm; /* 195.44 - 194.94 */
   margin-left: var(--sig-left);
   width: var(--sig-w);
-  min-height: 81mm; /* contains the absolutely-positioned signature lines */
+  /* Holds the absolutely-positioned signature lines, which reach ~80.4mm down
+     the block (.qp-siglines at top 65.9mm). 81mm is therefore the floor that
+     keeps the footer clear of them - do not shrink it without re-measuring. */
+  min-height: 81mm;
 }
 
 /* ---- title ----------------------------------------------------------- */
@@ -374,6 +386,9 @@
 
 .qp-particular {
   text-align: justify;
+  /* The mapper joins the item name and its description with a newline. Without
+     this the break collapses to a space and the two run together on one line. */
+  white-space: pre-line;
 }
 
 .qp-num {
@@ -393,10 +408,21 @@
 }
 
 /* ---- table C: totals / company --------------------------------------- */
-.qp-totals tr:nth-child(1) {
+/* Row geometry is keyed off class names, not :nth-child. A quotation carrying
+   a discount renders SUBTOTAL / DISCOUNT / NET / GST instead of SUBTOTAL / GST,
+   and positional rules must land on the intended row either way. */
+.qp-row-subtotal {
   height: 5.572mm;
 }
-.qp-totals tr:nth-child(2) {
+/* The two extra rows a discount introduces. Height is left to the content so
+   the block grows rather than pushing the sheet past one A4 page. */
+.qp-row-discount,
+.qp-row-net {
+  height: auto;
+}
+/* The last row of the block: taller, because the target gives the GST row more
+   vertical room and nudges its figure up. */
+.qp-row-gst {
   height: 10.553mm;
 }
 
@@ -415,13 +441,13 @@
   font-size: 13.8pt !important;
 }
 
-.qp-totals tr:nth-child(1) .qp-tot-value { top: 0.34mm; }
-.qp-totals tr:nth-child(2) .qp-tot-value { top: -1.77mm; }
-.qp-totals tr:nth-child(1) .qp-tot-label {
+.qp-row-subtotal .qp-tot-value { top: 0.34mm; }
+.qp-row-subtotal .qp-tot-label {
   top: 0.34mm;
   font-size: 12.5pt !important;
 }
-.qp-totals tr:nth-child(2) .qp-tot-label { left: -1.5mm; }
+.qp-row-gst .qp-tot-value { top: -1.77mm; }
+.qp-row-gst .qp-tot-label { left: -1.5mm; }
 
 .qp-totals-cont {
   border-top: none;
@@ -664,12 +690,27 @@
     /* allow the sheet to paginate when content exceeds one page */
   }
 
+  /* Atomic blocks: these must never straddle a page boundary, or the signature
+     box and footer get split from the totals they belong to. Only the items
+     section is allowed to break - its rows carry break-inside: avoid and its
+     <thead> repeats, so a long quotation continues with the column headings. */
   .qp-sec-info,
   .qp-sec-totals,
   .qp-sec-sig,
   .qp-footer {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* The banner, watermark and title are absolutely positioned against
+     .qp-sheet, so they would appear on page 1 only. Switching them to `fixed`
+     makes Chrome repeat them on every printed page, giving a continuation page
+     the same letterhead as the first. */
+  .qp-banner,
+  .qp-banner-art,
+  .qp-watermark,
+  .qp-title-area {
+    position: fixed;
   }
 
   .qp-sheet * {

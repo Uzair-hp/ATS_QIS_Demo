@@ -85,11 +85,19 @@ export default function Settings() {
                 <label className="form-label">Stamp / Seal Image</label>
                 {form.stamp_image && !removeStamp && (
                   <div className="mb-2">
-                    <img src={`data:image/png;base64,${form.stamp_image}`} alt="Stamp" style={{ maxHeight: 80 }} />
+                    {/* The MIME type is sniffed server-side from the upload's
+                        magic bytes and stored alongside the blob; a saved JPEG
+                        stamp would not render under a hardcoded image/png. */}
+                    <img
+                      src={`data:${form.stamp_mime || 'image/png'};base64,${form.stamp_image}`}
+                      alt="Stamp"
+                      style={{ maxHeight: 80 }}
+                    />
                     <div><button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={() => setRemoveStamp(true)}>Remove stamp</button></div>
                   </div>
                 )}
-                <input type="file" ref={fileRef} className="form-control" accept="image/*" onChange={(e) => { setStampFile(e.target.files[0]); setRemoveStamp(false) }} />
+                <input type="file" ref={fileRef} className="form-control" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" onChange={(e) => { setStampFile(e.target.files[0]); setRemoveStamp(false) }} />
+                <div className="form-text">PNG, JPEG, GIF, WebP or SVG. Maximum 2 MB.</div>
               </div>
               <div className="col-12"><button className="btn btn-inf">Save Settings</button></div>
             </form>

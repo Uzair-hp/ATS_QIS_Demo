@@ -69,12 +69,13 @@ def export_clients():
 
     si = io.StringIO()
     cw = csv.writer(si)
-    cw.writerow(['Client Name', 'Company Name', 'Email', 'Phone', 'Address', 'Total Billed', 'Outstanding'])
+    cw.writerow(['Client Name', 'Company Name', 'GST Number', 'Email', 'Phone', 'Address', 'Total Billed', 'Outstanding'])
 
     for c in clients:
         outstanding = sum(inv.balance_due for inv in c.invoices if not inv.is_archived)
         cw.writerow([
-            c.name, c.company_name or '', c.email or '', c.phone or '', c.address or '',
+            c.name, c.company_name or '', c.gst_number or '',
+            c.email or '', c.phone or '', c.address or '',
             f"{c.total_billed:.2f}", f"{outstanding:.2f}"
         ])
 
