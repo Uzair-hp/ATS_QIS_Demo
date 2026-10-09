@@ -5,7 +5,27 @@
 > **Project:** ATS Automation QIS (Quotation & Invoice System)  
 > **Purpose:** Audit of remaining work, problems found, and FORTIS HOSPITAL reference alignment
 
-**Status: everything in this document is done except the manual QA in §3.7.** See §4.4 for the eight real defects found while executing it — they were not in the original audit.
+**Status: everything in this document is done except the manual QA in §3.7 and the Render deploy fix in §3.8.** See §4.4 for the eight real defects found while executing it — they were not in the original audit.
+
+---
+
+## 0. Render deployment issue (found during this work)
+
+`render.yaml` sets `maxShutdownDelaySeconds: 120` on the single web service, which also declares a `disk:` block. **Render rejects this combination** — the Blueprint validation error is:
+
+```
+services[0].maxShutdownDelaySeconds
+max shutdown delay is not supported for services with a disk
+```
+
+The intent (let xhtml2PDF finishes during a 120s shutdown) is right; the implementation conflicts with the persistent-disk requirement that keeps the SQLite database. The current test `test_render.py:96-98` pins this value:
+
+```python
+def test_shutdown_grace_exceeds_the_pdf_render_time(service):
+    assert service.get('maxShutdownDelaySeconds', 30) >= 60
+```
+
+**This is the one open code item.** It needs the test and the yaml to agree, then verify the Blueprint parses. No production impact until you push the yaml to Render.
 
 ---
 
@@ -327,9 +347,33 @@ Caveat on the two backend scores: they now match FORTIS on palette, layout and c
 
 ---
 
+### 3.8 Render deployment fix — ⚠️ OPEN
+
+`render.yaml` line 27 declares `maxShutdownDelaySeconds: 120` on the single service, which also has a `disk:` block. **Render's Blueprint validator rejects this**: "max shutdown delay is not supported for services with a disk".
+
+The intent behind the field is correct — xhtml2pdf is CPU-bound and can take a while to render a PDF, and Render's default 30s shutdown can abort a render in progress. But the persistent disk (which is required to keep the SQLite database) and the shutdown delay are mutually exclusive on Render.
+
+The test `test_render.py:96-98` currently pins the value:
+
+```python
+def test_shutdown_grace_exceeds_the_pdf_render_time(service):
+    assert service.get('maxShutdownDelaySeconds', 30) >= 60
+```
+
+**Two possible resolutions:**
+1. Remove `maxShutdownDelaySeconds` from `render.yaml` and relax the test to assert gunicorn's own `--timeout` handles long renders.
+2. Keep the 120s target and document the Render constraint — Render will silently ignore the field but the gunicorn timeout covers the case.
+
+Either way requires a one-line change to `render.yaml` and a corresponding test edit. No production impact until the next Render deploy.
+
+---
+
 ## 6. What Is Still Open
 
-Only manual QA — the full list is in §3.7. Nothing here needs code.
+Two things:
+
+1. **Render deploy fix** — see §3.8: `render.yaml` has `maxShutdownDelaySeconds` on a service with a disk, which Render rejects.
+2. **Manual QA** — the full list is in §3.7. Nothing else needs code.
 
 Short version: the automated suite covers totals, PDF validity and content, CSV headers, stamp validation and the mappers. It does not check how anything *looks*. Those checks need eyes on the page.
 
@@ -344,4 +388,4 @@ Short version: the automated suite covers totals, PDF validity and content, CSV 
 
 ---
 
-*Updated 2026-10-08. All items from the original audit are complete; §3.7 lists the remaining manual QA.*
+*Updated 2026-10-08. All items from the original audit are complete; §0, §3.7–3.8, and §6 list the remaining work.*
