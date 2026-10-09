@@ -1,35 +1,36 @@
 services:
+  - type: web
+    name: ats-qis
+    runtime: python
+    plan: free
+    region: singapore
 
-* type: web
-  name: ats-qis
-  runtime: python
-  plan: free
-  region: singapore
+    buildCommand: |
+      npm --prefix frontend ci
+      npm --prefix frontend run build
+      pip install -r backend/requirements.txt
 
-  buildCommand: |
-  npm --prefix frontend ci
-  npm --prefix frontend run build
-  pip install -r backend/requirements.txt
+    startCommand: >-
+      gunicorn
+      --chdir backend
+      --bind 0.0.0.0:$PORT
+      --workers 2
+      --timeout 120
+      --access-logfile -
+      wsgi:application
 
-  startCommand: >-
-  gunicorn
-  --chdir backend
-  --bind 0.0.0.0:$PORT
-  --workers 2
-  --timeout 120
-  --access-logfile -
-  wsgi:application
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
 
-  healthCheckPath: /api/health
-  autoDeployTrigger: commit
+    envVars:
+      - key: FLASK_ENV
+        value: production
 
-  envVars:
+      - key: SECRET_KEY
+        generateValue: true
 
-  * key: FLASK_ENV
-    value: production
-
-  * key: SECRET_KEY
-    generateValue: true
-
-  * key: DATABASE_PATH
-    value: /tmp/ats.db
+      # The free plan has no persistent disk, so the SQLite file lives in /tmp
+      # and is wiped whenever the free instance restarts or idles out. This is
+      # the reason the free tier cannot be used for real data.
+      - key: DATABASE_PATH
+        value: /tmp/ats.db
