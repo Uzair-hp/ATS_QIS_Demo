@@ -79,6 +79,14 @@ def test_health_reports_missing_frontend(production_app):
     assert isinstance(body.get('frontend'), str)
 
 
+def test_site_root_redirects_to_the_spa(production_app):
+    """A bare host URL must not 404 - it is what people type and what Render
+    health-checks with a browser."""
+    resp = production_app.test_client().get('/')
+    assert resp.status_code in (301, 302, 308)
+    assert resp.headers['Location'].endswith('/app/')
+
+
 def test_production_sets_secure_cookie(production_app):
     assert production_app.config['SESSION_COOKIE_SECURE'] is True
 

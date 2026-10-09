@@ -5,7 +5,7 @@ REST API entry point (JSON only, no Jinja rendering).
 
 import os
 import secrets
-from flask import Flask, jsonify, session, request
+from flask import Flask, jsonify, session, request, redirect
 from flask_cors import CORS
 from flask_login import LoginManager, current_user
 from werkzeug.exceptions import NotFound
@@ -192,6 +192,11 @@ def create_app():
                 'error': 'Frontend build not found.',
                 'detail': f'Expected {FRONTEND_DIST}/index.html. Run "npm run build" in frontend/.',
             }), 503
+
+    @app.route('/')
+    def redirect_to_spa():
+        """The site root is the API host, not the app. Send browsers to the SPA."""
+        return redirect('/app/')
 
     @app.route('/app/')
     def serve_spa_root():

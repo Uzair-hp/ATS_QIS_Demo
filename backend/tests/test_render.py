@@ -1,9 +1,9 @@
 """The pieces of render.yaml that only matter on Render.
 
 The Blueprint itself is declarative YAML; these tests pin the decisions in it
-that would otherwise fail silently. Render's filesystem is ephemeral without a
-disk, so a mistake in DATABASE_PATH is the difference between a working deploy
-and losing every record on the next push.
+that would otherwise fail silently. The free plan's filesystem is ephemeral, so
+a mistake in DATABASE_PATH is the difference between a demo that resets and one
+that keeps its records.
 """
 
 import os
@@ -38,23 +38,29 @@ def test_service_is_a_python_web_service(service):
     assert service['runtime'] == 'python'
 
 
-# The whole reason DATABASE_PATH exists. Without a persistent disk, Render wipes
-# the filesystem on every deploy.
-def test_service_has_a_persistent_disk(service):
+def test_plan_and_disk_agree_about_persistence(service):
+    """The free plan has no disk, so the database cannot persist.
+
+    These are the two halves of one decision. If the plan is ever moved off
+    'free', a disk and a DATABASE_PATH on that disk have to come back with it -
+    otherwise the deploy silently resets on every restart.
+    """
+    plan = service.get('plan')
     disk = service.get('disk')
-    assert disk, 'no disk: every deploy would delete the database'
-    assert disk['mountPath'].startswith('/')
-    assert disk['sizeGB'] >= 1
-
-
-def test_database_path_points_at_the_mounted_disk(service):
-    disk = service['disk']
     env = {e['key']: e.get('value') for e in service['envVars']}
     path = env.get('DATABASE_PATH')
-    assert path, 'DATABASE_PATH is unset, so the database lands on the'
-    assert path.startswith(disk['mountPath']), \
-        f'{path} is outside the disk at {disk["mountPath"]}; it will not persist'
+
+    assert path, 'DATABASE_PATH is unset, so the database lands in the build dir'
     assert path.endswith('.db')
+
+    if plan == 'free':
+        assert not disk, 'the free plan does not support disks'
+        assert path.startswith('/tmp/'), \
+            f'{path} is outside /tmp; the free instance wipes the filesystem on restart'
+    else:
+        assert disk, f'plan {plan} costs money but has no disk: the database is wiped anyway'
+        assert path.startswith(disk['mountPath']), \
+            f'{path} is outside the disk at {disk["mountPath"]}; it will not persist'
 
 
 def test_secret_key_is_generated_not_committed(service):
