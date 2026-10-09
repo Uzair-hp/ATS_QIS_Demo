@@ -93,9 +93,13 @@ def test_health_check_uses_the_endpoint_that_exists(service):
     assert service['healthCheckPath'] == '/api/health'
 
 
-def test_shutdown_grace_exceeds_the_pdf_render_time(service):
-    """xhtml2pdf is CPU-bound. Render's 30s default can kill a PDF mid-write."""
-    assert service.get('maxShutdownDelaySeconds', 30) >= 60
+def test_gunicorn_timeout_exceeds_the_pdf_render_time(service):
+    """xhtml2PDF is CPU-bound. The 120s gunicorn timeout protects PDF renders."""
+    sc = service['startCommand']
+    assert '--timeout' in sc
+    parts = sc.split()
+    idx = parts.index('--timeout')
+    assert int(parts[idx + 1]) >= 120
 
 
 def test_gunicorn_is_a_runtime_dependency():

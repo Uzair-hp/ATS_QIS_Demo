@@ -22,10 +22,6 @@ services:
       --access-logfile -
       wsgi:application
 
-    # xhtml2pdf is CPU-bound and slow enough that the default 30s shutdown can
-    # kill a PDF mid-render on deploy.
-    maxShutdownDelaySeconds: 120
-
     healthCheckPath: /api/health
     autoDeployTrigger: commit
 
