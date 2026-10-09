@@ -1,35 +1,35 @@
-```yaml
 services:
-  - type: web
-    name: ats-qis
-    runtime: python
-    plan: free
-    region: singapore
 
-    buildCommand: |
-      npm --prefix frontend ci
-      npm --prefix frontend run build
-      pip install -r backend/requirements.txt
+* type: web
+  name: ats-qis
+  runtime: python
+  plan: free
+  region: singapore
 
-    startCommand: >-
-      gunicorn
-      --chdir backend
-      --bind 0.0.0.0:$PORT
-      --workers 2
-      --timeout 120
-      --access-logfile -
-      wsgi:application
+  buildCommand: |
+  npm --prefix frontend ci
+  npm --prefix frontend run build
+  pip install -r backend/requirements.txt
 
-    healthCheckPath: /api/health
-    autoDeployTrigger: commit
+  startCommand: >-
+  gunicorn
+  --chdir backend
+  --bind 0.0.0.0:$PORT
+  --workers 2
+  --timeout 120
+  --access-logfile -
+  wsgi:application
 
-    envVars:
-      - key: FLASK_ENV
-        value: production
+  healthCheckPath: /api/health
+  autoDeployTrigger: commit
 
-      - key: SECRET_KEY
-        generateValue: true
+  envVars:
 
-      - key: DATABASE_PATH
-        value: /tmp/ats.db
-```
+  * key: FLASK_ENV
+    value: production
+
+  * key: SECRET_KEY
+    generateValue: true
+
+  * key: DATABASE_PATH
+    value: /tmp/ats.db
