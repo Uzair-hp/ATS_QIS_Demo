@@ -1,0 +1,168 @@
+{# ============================================================================
+   T5 · COMPACT DENSE  (fits ~40+ line items per page)
+   Tight leading, minimal chrome. Best for BOM-heavy / site installation work.
+   ============================================================================ #}
+{% import "_pdfmacros.html" as m %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ invoice.invoice_number }}</title>
+<style>
+@page { size: a4 portrait; margin: 0.6cm 0.8cm 0.4cm 0.8cm; }
+}
+* { margin:0; padding:0; }
+body { font-family: Helvetica, Arial, sans-serif; color:#000; font-size:8.4pt; line-height:1.22; }
+    .logo-plate { background-color:#ffffff; padding:7px 12px; }
+.hdr { background-color:#007acc; color:#fff; }
+.hdr td { padding:7px 0.8cm; }
+.logo-cell { padding:0; }
+.doc-title { font-size:13pt; font-weight:bold; letter-spacing:2px; text-align:center; }
+.doc-num { font-size:8pt; text-align:center; letter-spacing:0.5px; }
+.hr { background-color:#007acc; }
+.lbl { font-weight:bold; }
+.mini td { padding: 1px 0; font-size:8.2pt; }
+.mini td.k { color:#444; }
+.mini td.v { font-weight:bold; text-align:right; }
+.subject { text-align:center; font-size:11pt; font-weight:bold; color:#007acc; letter-spacing:1px; padding: 2px 0 3px 0; }
+.items th { background-color:#007acc; color:#fff; border:1px solid #007acc; padding:3px 4px; font-size:7.6pt; text-align:center; letter-spacing:0.3px; }
+.items td { border:1px solid #bbb; padding:2.6px 4px; vertical-align:top; font-size:8.2pt; }
+.item-desc { font-size:7.2pt; color:#333; }
+.totals td { border:1px solid #bbb; padding:3px 6px; font-size:8.2pt; }
+.grand td { background-color:#007acc; color:#fff; font-weight:bold; font-size:9.5pt; border-color:#007acc; }
+.words { font-size:7.4pt; padding:3px 5px; border:1px solid #bbb; margin-top:3px; }
+.sign { border:1px solid #bbb; }
+.sign td { padding:4px 6px; }
+.sign-box { border:1px solid #bbb; padding: 3px 6px; text-align:center; }
+.footer-bar { background-color:#007acc; color:#fff; text-align:center; font-size:7.6pt; padding:7px 0.8cm; }
+.tr { text-align:right; } .tc { text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="headerContent">
+    <table width="100%" cellspacing="0" cellpadding="0"><tr class="hr"><td style="height:4px;"></td></tr></table>
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td width="58%" class="logo-cell" valign="middle">
+            {% if logo_base64 %}
+            <table cellspacing="0" cellpadding="0" class="logo-plate"><tr><td><img src="data:image/png;base64,{{ logo_base64 }}" style="width:140px;" alt="{{ profile.name }}"></td></tr></table>
+            {% else %}<span style="font-size:14pt; font-weight:bold; color:#007acc;">{{ profile.name }}</span>{% endif %}
+        </td>
+        <td width="42%" class="hdr" valign="middle">
+            <div class="doc-title">TAX INVOICE</div>
+            <div class="doc-num">{{ invoice.invoice_number }}</div>
+        </td>
+    </tr></table>
+</div>
+
+{% if invoice.subject %}<div class="subject">{{ invoice.subject|upper }}</div>{% endif %}
+
+<table width="100%" cellspacing="0" cellpadding="0" class="items"><tr>
+    <td width="52%" style="padding:4px 5px; border:1px solid #bbb; vertical-align:top;">
+        <span class="lbl">TO,</span><br>
+        <span class="lbl">{{ invoice.client.company_name or invoice.client.name }}</span><br>
+        {% if invoice.client.address %}{{ m.nl(invoice.client.address) }}{% endif %}
+        {% if invoice.client.company_name and invoice.client.name %}<span class="lbl">K/A:</span> {{ invoice.client.name }}{% endif %}
+    </td>
+    <td width="48%" style="padding:0; vertical-align:top;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="items" style="border:0;">
+            <tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">Invoice No.</span></td><td class="v" style="border:1px solid #bbb;">{{ invoice.invoice_number }}</td></tr>
+            <tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">Date</span></td><td class="v" style="border:1px solid #bbb;">{{ m.dt(invoice.date_created) }}</td></tr>
+            {% if invoice.due_date %}<tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">Due</span></td><td class="v" style="border:1px solid #bbb;">{{ m.dt(invoice.due_date) }}</td></tr>{% endif %}
+            {% if invoice.voucher_number %}<tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">Voucher</span></td><td class="v" style="border:1px solid #bbb;">{{ invoice.voucher_number }}</td></tr>{% endif %}
+            {% if invoice.payment_terms %}<tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">Term</span></td><td class="v" style="border:1px solid #bbb;">{{ invoice.payment_terms }}</td></tr>{% endif %}
+            {% if invoice.client.gst_number %}<tr><td class="k" style="border:1px solid #bbb;"><span class="lbl">GST No.</span></td><td class="v" style="border:1px solid #bbb;">{{ invoice.client.gst_number }}</td></tr>{% endif %}
+        </table>
+    </td>
+</tr></table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0" class="items" repeat="1">
+
+<thead><tr>
+    <th width="1.1cm">SR.</th><th style="text-align:left;" width="7.0cm">PARTICULARS</th><th width="2.3cm">HSN</th><th width="1.5cm">QTY</th><th width="3.0cm">RATE</th><th width="4.5cm">AMOUNT</th>
+</tr></thead>
+<tbody>
+{% for item in invoice.items %}
+<tr>
+    <td class="tc" width="1.1cm">{{ loop.index }}</td>
+    <td class="" width="7.0cm"><span class="lbl">{{ item.service_name }}</span>
+        {% if item.description %}<br><span class="item-desc">{{ m.nl(item.description) }}</span>{% endif %}</td>
+    <td class="tc" width="2.3cm">{{ item.hsn_code or '' }}</td>
+    <td class="tc" width="1.5cm">{{ m.qty(item.quantity) }}</td>
+    <td class="tr" width="3.0cm">{{ m.num(item.rate) }}</td>
+    <td class="tr" width="4.5cm">{{ m.amt(item.amount) }}</td>
+</tr>
+{% endfor %}
+<tr>
+    <td colspan="5" class="tr" style="font-weight:bold;">SUB TOTAL</td>
+    <td class="tr" style="font-weight:bold;">{{ m.amt(invoice.sub_total) }}</td>
+</tr>
+</tbody>
+</table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="56%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr><td style="font-size:8pt; line-height:1.45;">
+            {{ m.bank_block(profile) }}
+            {% if profile.msme_number %}<br><span class="lbl">MSME :</span> {{ profile.msme_number }}{% endif %}
+        </td></tr></table>
+        {% if profile.upi_id and invoice.balance_due and invoice.balance_due > 0 %}
+        <div style="height:3px;"></div>
+        <table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr><td>
+            {{ m.upi_qr(profile, invoice.balance_due, qr_base64, 'SCAN & PAY', '62px') }}
+        </td></tr></table>
+        {% endif %}
+        {% if invoice.notes %}
+        <div style="height:3px;"></div>
+        <table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr><td style="font-size:7.6pt;">
+            <span class="lbl">Terms :</span> {{ m.nl(invoice.notes) }}
+        </td></tr></table>
+        {% endif %}
+    </td>
+    <td width="44%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="totals">
+            <tr><td class="lbl">Subtotal</td><td class="tr">{{ m.amt(invoice.sub_total) }}</td></tr>
+            {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+            <tr><td class="lbl">Discount{% if invoice.discount_type == 'percent' %} ({{ m.qty(invoice.discount) }}%){% endif %}</td><td class="tr">- {{ m.amt(invoice.discount_amount) }}</td></tr>
+            {% endif %}
+            {% if invoice.gst_percent and invoice.gst_percent > 0 %}
+            <tr><td class="lbl">GST @ {{ m.qty(invoice.gst_percent) }}%</td><td class="tr">{{ m.amt(invoice.gst_amount) }}</td></tr>
+            {% endif %}
+            <tr class="grand"><td>GRAND TOTAL</td><td class="tr">{{ m.amt(invoice.total_amount) }}</td></tr>
+            {% if invoice.advance_amount and invoice.advance_amount > 0 %}
+            <tr><td class="lbl">Advance</td><td class="tr">{{ m.amt(invoice.advance_amount) }}</td></tr>
+            <tr><td class="lbl">Balance Due</td><td class="tr">{{ m.amt(invoice.balance_due) }}</td></tr>
+            {% endif %}
+        </table>
+        <div class="words"><span class="lbl">In words:</span> {{ m.amount_words_label(invoice.total_amount) }}</div>
+    </td>
+</tr></table>
+
+<div style="height:5px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr>
+    <td width="58%" valign="bottom" style="font-size:8.4pt; padding-top:26px;">
+        Signature : ______________________________<br>
+        Person Name : ____________________________
+    </td>
+    <td width="42%" valign="top" class="sign-box">
+        <span class="lbl">For {{ profile.name|upper }}</span><br>
+        {% if profile.stamp_image %}
+        <img src="data:image/png;base64,{{ profile.stamp_image }}" style="width:90px;" alt="Stamp"><br>
+        {% else %}<div style="height:48px;"></div>{% endif %}
+        Authorized Signatory
+    </td>
+</tr></table>
+
+<div id="footerContent">
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td class="footer-bar">{{ m.footer_bar(profile) }}</td>
+    </tr></table>
+</div>
+
+</body>
+</html>

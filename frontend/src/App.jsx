@@ -15,6 +15,7 @@ import QuotationView from './pages/QuotationView'
 import QuotationPrintPage from './pages/QuotationPrintPage'
 import InvoicePrintPage from './pages/InvoicePrintPage'
 import Settings from './pages/Settings'
+import Help from './pages/Help'
 import { useAuth } from './context/AuthContext'
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
       <Route path="/quotations/:id" element={<ProtectedRoute><QuotationView /></ProtectedRoute>} />
       <Route path="/quotations/:id/print" element={<ProtectedRoute><QuotationPrintPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

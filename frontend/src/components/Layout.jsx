@@ -53,7 +53,7 @@ export default function Layout({ title, breadcrumb, children }) {
           <img src={logo} alt="ATS Automation" />
           <div className="brand-text">
             <h6>ATS Automation</h6>
-            <small>Security &amp; Systems</small>
+            <small>Security & Systems</small>
           </div>
         </div>
 
@@ -96,6 +96,10 @@ export default function Layout({ title, breadcrumb, children }) {
           <NavLink to="/settings" className={navClass}>
             <i className="bi bi-gear-fill"></i>
             <span className="nav-text">Company Settings</span>
+          </NavLink>
+          <NavLink to="/help" className={navClass}>
+            <i className="bi bi-question-circle-fill"></i>
+            <span className="nav-text">Help &amp; Support</span>
           </NavLink>
           {/* A file download rather than a route, so an <a>, not a NavLink.
               Same-origin GET, so the session cookie authenticates it and the

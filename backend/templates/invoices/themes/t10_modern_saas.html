@@ -1,0 +1,205 @@
+{# ============================================================================
+   T10 · MODERN SaaS  (teal/indigo, rounded-feel chips, timeline meta block)
+   The "designed product" look — best if you send a lot of invoices digitally.
+   ============================================================================ #}
+{% import "_pdfmacros.html" as m %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ invoice.invoice_number }}</title>
+<style>
+@page { size: a4 portrait; margin: 0.6cm 0.8cm 0.4cm 0.8cm; }
+}
+* { margin:0; padding:0; }
+body { font-family: Helvetica, Arial, sans-serif; color:#1e293b; font-size:9.5pt; line-height:1.4; }
+    .logo-plate { background-color:#ffffff; padding:7px 12px; }
+.hero { background-color:#0f766e; }
+.hero-logo { padding:0; }
+.hero-title { color:#fff; font-size:19pt; font-weight:bold; letter-spacing:4px; text-align:right; padding:14px 1.1cm 0 0; }
+.hero-num { color:#99f6e4; font-size:8.5pt; letter-spacing:1.5px; text-align:right; padding:0 1.1cm 14px 0; }
+.subject-bar { background-color:#f0fdfa; border-left:5px solid #0f766e; padding:9px 12px; margin-bottom:9px; }
+.subject-k { color:#0f766e; font-size:7.5pt; letter-spacing:2px; font-weight:bold; }
+.subject-v { font-size:16pt; font-weight:bold; color:#0f766e; letter-spacing:0.5px; }
+.card { border:1px solid #ccfbf1; }
+.card-hd { background-color:#ccfbf1; color:#0f766e; font-size:8pt; letter-spacing:1.5px; padding:5px 9px; font-weight:bold; }
+.card-bd { padding: 6px; }
+.kv td { padding: 2px 0; font-size: 8.8pt; }
+.kv td.k { color:#64748b; width:45%; }
+.kv td.v { font-weight:bold; text-align:right; }
+.badge { background-color:#ccfbf1; color:#0f766e; font-size:7.5pt; font-weight:bold; padding:2px 8px; }
+.badge-amber { background-color:#fef3c7; color:#92400e; }
+.badge-green { background-color:#dcfce7; color:#166534; }
+.items th { background-color:#0f766e; color:#fff; border:1px solid #0f766e; padding:7px 6px; font-size:8.3pt; text-align:center; letter-spacing:0.5px; }
+.items td { border:1px solid #e2e8f0; padding:4px 6px; vertical-align:top; }
+.item-desc { font-size:8.2pt; color:#64748b; }
+.totals td { padding: 4px 8px; border-bottom:1px solid #f1f5f9; }
+.grand td { background-color:#0f766e; color:#fff; font-weight:bold; font-size:12pt; border:none; }
+.due td { background-color:#fff7ed; color:#9a3412; font-weight:bold; }
+.words { background-color:#f8fafc; border:1px solid #e2e8f0; padding:7px 9px; margin-top:7px; font-size:8.5pt; }
+.signbox { border:1px solid #ccfbf1; padding: 6px; text-align:center; }
+.footer-bar { background-color:#0f766e; color:#ccfbf1; text-align:center; font-size:8pt; padding:10px 1.1cm; }
+.tr { text-align:right; } .tc { text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="headerContent">
+    <table width="100%" cellspacing="0" cellpadding="0" class="hero"><tr>
+        <td width="60%" class="hero-logo" valign="middle">
+            {% if logo_base64 %}
+            <table cellspacing="0" cellpadding="0" class="logo-plate"><tr><td><img src="data:image/png;base64,{{ logo_base64 }}" style="width:150px;" alt="{{ profile.name }}"></td></tr></table>
+            {% else %}<span style="font-size:19pt; font-weight:bold; color:#fff;">{{ profile.name }}</span>{% endif %}
+        </td>
+        <td width="40%" valign="middle">
+            <div class="hero-title">INVOICE</div>
+            <div class="hero-num">{{ invoice.invoice_number }}</div>
+        </td>
+    </tr></table>
+</div>
+
+{% if invoice.subject %}
+<table width="100%" cellspacing="0" cellpadding="0" class="subject-bar"><tr><td>
+    <span class="subject-k">SUBJECT</span><br><span class="subject-v">{{ invoice.subject|upper }}</span>
+</td></tr></table>
+{% endif %}
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="50%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+            <div class="card-hd">CUSTOMER</div>
+            <div class="card-bd">
+                <span style="font-weight:bold; font-size:10.5pt;">{{ invoice.client.company_name or invoice.client.name }}</span><br>
+                {% if invoice.client.address %}{{ m.nl(invoice.client.address) }}{% endif %}
+                {% if invoice.client.phone %}{{ invoice.client.phone }}<br>{% endif %}
+                {% if invoice.client.email %}{{ invoice.client.email }}<br>{% endif %}
+                {% if invoice.client.company_name and invoice.client.name %}Attn: {{ invoice.client.name }}{% endif %}
+            </div>
+        </td></tr></table>
+        {% if invoice.delivery_address %}
+        <div style="height:4px;"></div>
+        <table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+            <div class="card-hd">DELIVERY ADDRESS</div>
+            <div class="card-bd" style="font-size:9pt;">{{ m.nl(invoice.delivery_address) }}</div>
+        </td></tr></table>
+        {% endif %}
+    </td>
+    <td width="50%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+            <div class="card-hd">SUMMARY</div>
+            <div class="card-bd">
+                <table width="100%" cellspacing="0" cellpadding="0" class="kv">
+                    <tr><td class="k">Invoice No.</td><td class="v">{{ invoice.invoice_number }}</td></tr>
+                    <tr><td class="k">Issued</td><td class="v">{{ m.dmy(invoice.date_created) }}</td></tr>
+                    {% if invoice.due_date %}<tr><td class="k">Due</td><td class="v">{{ m.dmy(invoice.due_date) }}</td></tr>{% endif %}
+                    {% if invoice.voucher_number %}<tr><td class="k">Voucher</td><td class="v">{{ invoice.voucher_number }}</td></tr>{% endif %}
+                    {% if invoice.payment_terms %}<tr><td class="k">Terms</td><td class="v">{{ invoice.payment_terms }}</td></tr>{% endif %}
+                    {% if invoice.ref_quotation_number %}<tr><td class="k">Quote Ref.</td><td class="v">{{ invoice.ref_quotation_number }}</td></tr>{% endif %}
+                    {% if invoice.client.gst_number %}<tr><td class="k">GSTIN</td><td class="v">{{ invoice.client.gst_number }}</td></tr>{% endif %}
+                </table>
+                <div style="padding-top:7px;">
+                    {% if invoice.status == 'Paid' %}<span class="badge badge-green">{{ m.status_label(invoice) }}</span>
+                    {% else %}<span class="badge badge-amber">{{ m.status_label(invoice) }}</span>{% endif %}
+                </div>
+            </div>
+        </td></tr></table>
+    </td>
+</tr></table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0" class="items" repeat="1">
+
+<thead><tr>
+    <th width="1.1cm">#</th><th style="text-align:left;" width="7.0cm">ITEM</th><th width="2.3cm">HSN/SAC</th><th width="1.5cm">QTY</th><th width="3.0cm">RATE</th><th width="4.5cm">AMOUNT</th>
+</tr></thead>
+<tbody>
+{% for item in invoice.items %}
+<tr>
+    <td class="tc" width="1.1cm">{{ loop.index }}</td>
+    <td class="" width="7.0cm"><span style="font-weight:bold;">{{ item.service_name }}</span>
+        {% if item.description %}<br><span class="item-desc">{{ m.nl(item.description) }}</span>{% endif %}</td>
+    <td class="tc" width="2.3cm">{{ item.hsn_code or '—' }}</td>
+    <td class="tc" width="1.5cm">{{ m.qty(item.quantity) }}</td>
+    <td class="tr" width="3.0cm">{{ m.num(item.rate) }}</td>
+    <td class="tr" width="4.5cm">{{ m.amt(item.amount) }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="48%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+            <div class="card-hd">PAYMENT DETAILS</div>
+            <div class="card-bd" style="font-size:8.8pt; line-height:1.35;">
+                {{ m.bank_block(profile) }}
+                {% if profile.msme_number %}<br><span style="font-weight:bold;">MSME :</span> {{ profile.msme_number }}{% endif %}
+            </div>
+        </td></tr></table>
+        {% if profile.upi_id and invoice.balance_due and invoice.balance_due > 0 %}
+        <div style="height:4px;"></div>
+        <table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+            <div class="card-bd">{{ m.upi_qr(profile, invoice.balance_due, qr_base64, 'PAY INSTANTLY', '60px') }}</div>
+        </td></tr></table>
+        {% endif %}
+    </td>
+    <td width="52%" valign="top">
+        <table width="100%" cellspacing="0" cellpadding="0" class="totals">
+            <tr><td>Subtotal</td><td class="tr">{{ m.amt(invoice.sub_total) }}</td></tr>
+            {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+            <tr><td>Discount{% if invoice.discount_type == 'percent' %} ({{ m.qty(invoice.discount) }}%){% endif %}</td><td class="tr">- {{ m.amt(invoice.discount_amount) }}</td></tr>
+            {% endif %}
+            {% if invoice.gst_percent and invoice.gst_percent > 0 %}
+            <tr><td>GST @ {{ m.qty(invoice.gst_percent) }}%</td><td class="tr">{{ m.amt(invoice.gst_amount) }}</td></tr>
+            {% endif %}
+            <tr class="grand"><td>TOTAL</td><td class="tr">{{ m.amt(invoice.total_amount) }}</td></tr>
+            {% if invoice.advance_amount and invoice.advance_amount > 0 %}
+            <tr><td>Paid</td><td class="tr">{{ m.amt(invoice.advance_amount) }}</td></tr>
+            <tr class="due"><td>DUE NOW</td><td class="tr">{{ m.amt(invoice.balance_due) }}</td></tr>
+            {% endif %}
+        </table>
+        <div class="words">
+            <span style="font-weight:bold;">Amount in words :</span><br>
+            {{ m.amount_words_label(invoice.total_amount) }}
+        </div>
+    </td>
+</tr></table>
+
+<div style="height:4px;"></div>
+
+{% if invoice.notes %}
+<table width="100%" cellspacing="0" cellpadding="0" class="card"><tr><td>
+    <div class="card-hd">NOTES</div>
+    <div class="card-bd" style="font-size:8.8pt;">{{ m.nl(invoice.notes) }}</div>
+</td></tr></table>
+<div style="height:4px;"></div>
+{% endif %}
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="50%" valign="bottom">
+        <span style="font-size:8.5pt; color:#94a3b8;">CUSTOMER ACCEPTANCE</span><br><br>
+        Signature : ______________________________<br>
+        Person Name : ____________________________
+    </td>
+    <td width="50%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="signbox"><tr><td>
+            <span style="font-weight:bold;">For {{ profile.name|upper }}</span><br>
+            {% if profile.stamp_image %}
+            <img src="data:image/png;base64,{{ profile.stamp_image }}" style="width:112px;" alt="Stamp"><br>
+            {% else %}<div style="height:26px;"></div>{% endif %}
+            <span style="font-size:8.5pt; color:#64748b;">Authorized Signatory</span>
+        </td></tr></table>
+    </td>
+</tr></table>
+
+<div id="footerContent">
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td class="footer-bar">{{ m.footer_bar(profile) }}</td>
+    </tr></table>
+</div>
+
+</body>
+</html>
