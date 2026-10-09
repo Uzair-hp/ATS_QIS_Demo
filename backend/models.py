@@ -13,6 +13,10 @@ db = SQLAlchemy()
 # IST offset
 IST = timezone(timedelta(hours=5, minutes=30))
 
+# Every authenticated account can reach every endpoint, so there is one role.
+# Derived, not stored, so it can never be changed through the API.
+USER_ROLE = 'Administrator'
+
 
 def now_ist():
     """Return current datetime in IST."""
@@ -26,12 +30,32 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    # Profile fields. Nullable so pre-existing rows keep working; there is no
+    # role column because every account that can reach the API is an administrator.
+    full_name = db.Column(db.String(120), nullable=True)
+    email = db.Column(db.String(150), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    avatar_image = db.Column(db.Text, nullable=True)  # Base64 encoded
+    avatar_mime = db.Column(db.String(30), nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def to_public_dict(self):
+        """Everything safe to hand to the SPA. password_hash is never included."""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'full_name': self.full_name,
+            'email': self.email,
+            'phone': self.phone,
+            'avatar_image': self.avatar_image,
+            'avatar_mime': self.avatar_mime,
+            'role': USER_ROLE,
+        }
 
 
 class CompanyProfile(db.Model):

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import ChangePasswordForm from '../components/ChangePasswordForm'
 import { useToast } from '../context/ToastContext'
 
 const profileFields = [
@@ -46,7 +47,6 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('company')
   const [companySub, setCompanySub] = useState('profile')
   const [form, setForm] = useState({})
-  const [pwd, setPwd] = useState({ old_password: '', new_password: '', confirm_password: '' })
   const [confirmWipe, setConfirmWipe] = useState('')
   const [stampFile, setStampFile] = useState(null)
   const [removeStamp, setRemoveStamp] = useState(false)
@@ -100,17 +100,6 @@ export default function Settings() {
       push('Printing settings saved!', 'success')
     } catch { push('Failed to save printing settings.', 'danger') }
   }
-
-  const changePassword = async (e) => {
-    e.preventDefault()
-    try {
-      await api.post('/settings/change_password', pwd)
-      push('Password changed successfully!', 'success')
-      setPwd({ old_password: '', new_password: '', confirm_password: '' })
-    } catch (err) { push(err.response?.data?.error || 'Failed.', 'danger') }
-  }
-
-  
 
   const wipe = async () => {
     try {
@@ -328,7 +317,7 @@ export default function Settings() {
           )}
 
           {activeTab === 'account' && (
-            <form onSubmit={changePassword} className="row g-3" style={{ maxWidth: 480 }}>
+            <div className="row g-3" style={{ maxWidth: 480 }}>
               <div className="col-12">
                 <h6 className="fw-bold mb-3">
                   <i className="bi bi-person-gear me-2 text-primary"></i>
@@ -336,24 +325,15 @@ export default function Settings() {
                 </h6>
               </div>
               <div className="col-12">
-                <label className="form-label">Current Password</label>
-                <input type="password" className="form-control" value={pwd.old_password} onChange={(e) => setPwd({ ...pwd, old_password: e.target.value })} required />
+                <ChangePasswordForm />
               </div>
               <div className="col-12">
-                <label className="form-label">New Password</label>
-                <input type="password" className="form-control" value={pwd.new_password} onChange={(e) => setPwd({ ...pwd, new_password: e.target.value })} required />
+                <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>
+                  Your name, email and photo are managed on the{' '}
+                  <Link to="/profile">Profile Settings</Link> page.
+                </p>
               </div>
-              <div className="col-12">
-                <label className="form-label">Confirm New Password</label>
-                <input type="password" className="form-control" value={pwd.confirm_password} onChange={(e) => setPwd({ ...pwd, confirm_password: e.target.value })} required />
-              </div>
-              <div className="col-12">
-                <button className="btn btn-inf">
-                  <i className="bi bi-key me-1"></i>
-                  Update Password
-                </button>
-              </div>
-            </form>
+            </div>
           )}
 
           {activeTab === 'printing' && (
@@ -409,24 +389,7 @@ export default function Settings() {
                   Change Password
                 </h6>
               </div>
-              <form onSubmit={changePassword}>
-                <div className="mb-3">
-                  <label className="form-label">Current Password</label>
-                  <input type="password" className="form-control" value={pwd.old_password} onChange={(e) => setPwd({ ...pwd, old_password: e.target.value })} required />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">New Password</label>
-                  <input type="password" className="form-control" value={pwd.new_password} onChange={(e) => setPwd({ ...pwd, new_password: e.target.value })} required />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Confirm New Password</label>
-                  <input type="password" className="form-control" value={pwd.confirm_password} onChange={(e) => setPwd({ ...pwd, confirm_password: e.target.value })} required />
-                </div>
-                <button className="btn btn-inf">
-                  <i className="bi bi-key me-1"></i>
-                  Update Password
-                </button>
-              </form>
+              <ChangePasswordForm />
 
               <div className="col-12">
                 <hr className="my-4" />

@@ -272,6 +272,11 @@ def create_app():
             "ALTER TABLE company_profile ADD COLUMN quotation_pdf_theme VARCHAR(50) DEFAULT 'classic'",
             "ALTER TABLE company_profile ADD COLUMN logo_image TEXT",
             "ALTER TABLE company_profile ADD COLUMN logo_mime VARCHAR(30)",
+            "ALTER TABLE users ADD COLUMN full_name VARCHAR(120)",
+            "ALTER TABLE users ADD COLUMN email VARCHAR(150)",
+            "ALTER TABLE users ADD COLUMN phone VARCHAR(30)",
+            "ALTER TABLE users ADD COLUMN avatar_image TEXT",
+            "ALTER TABLE users ADD COLUMN avatar_mime VARCHAR(30)",
         ]
         for col in migrations:
             try:

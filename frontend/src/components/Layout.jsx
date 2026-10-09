@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ProfileMenuProvider } from '../context/ProfileMenuContext'
+import ProfileMenu from './ProfileMenu'
 import logo from '../logo.png'
 
 const navClass = ({ isActive }) => `nav-link${isActive ? ' active' : ''}`
@@ -30,7 +32,7 @@ export default function Layout({ title, breadcrumb, children }) {
   }
 
   return (
-    <>
+    <ProfileMenuProvider>
       {/* Mobile Backdrop Overlay */}
       <div
         className={`sidebar-overlay ${sidebarOpen ? 'show' : ''}`}
@@ -95,7 +97,7 @@ export default function Layout({ title, breadcrumb, children }) {
           <div className="nav-section">System</div>
           <NavLink to="/settings" className={navClass}>
             <i className="bi bi-gear-fill"></i>
-            <span className="nav-text">Company Settings</span>
+            <span className="nav-text">Settings</span>
           </NavLink>
           <NavLink to="/help" className={navClass}>
             <i className="bi bi-question-circle-fill"></i>
@@ -111,27 +113,7 @@ export default function Layout({ title, breadcrumb, children }) {
         </div>
 
         <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="sidebar-avatar">
-              <i className="bi bi-person-fill"></i>
-            </div>
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--inf-text)' }}>
-                {user?.username || 'admin'}
-              </div>
-              <small style={{ fontSize: '0.72rem', color: 'var(--inf-success)', fontWeight: 600 }}>
-                ● Active
-              </small>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="btn btn-link p-1 text-danger"
-            title="Sign Out"
-            style={{ textDecoration: 'none' }}
-          >
-            <i className="bi bi-box-arrow-right" style={{ fontSize: '1.15rem' }}></i>
-          </button>
+          <ProfileMenu />
         </div>
       </nav>
 
@@ -224,6 +206,6 @@ export default function Layout({ title, breadcrumb, children }) {
         {/* Content Body */}
         <main className="page-body">{children}</main>
       </div>
-    </>
+    </ProfileMenuProvider>
   )
 }

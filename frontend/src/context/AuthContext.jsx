@@ -23,6 +23,10 @@ export function AuthProvider({ children }) {
     syncSession()
   }, [])
 
+  // Re-reads /auth/me so the sidebar shows saved profile changes. Keeps the
+  // session: it is the same cookie, just a fresh copy of the user record.
+  const refresh = () => syncSession()
+
   const login = async (username, password, remember) => {
     const res = await api.post('/auth/login', { username, password, remember })
     setUser(res.data.user)
@@ -40,7 +44,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   )

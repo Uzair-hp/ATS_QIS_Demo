@@ -1405,6 +1405,12 @@ body.sidebar-collapsed .main-content {
     .dashboard-hero {
         padding: 1.25rem 1.25rem;
     }
+
+    .profile-avatar-xl {
+        width: 64px;
+        height: 64px;
+        font-size: 1.25rem;
+    }
 }
 
 @media (max-width: 575.98px) {
@@ -1427,6 +1433,232 @@ body.sidebar-collapsed .main-content {
     .btn-topbar-new span {
         display: none;
     }
+}
+
+/* ── PROFILE MENU (sidebar footer popup) ── */
+.profile-menu-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.profile-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.5rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--inf-radius-sm);
+    text-align: left;
+    transition: background var(--inf-transition), border-color var(--inf-transition);
+}
+
+.profile-menu-trigger:hover {
+    background: var(--inf-sidebar-hover);
+}
+
+.profile-menu-trigger:focus-visible {
+    outline: 2px solid var(--inf-primary);
+    outline-offset: 2px;
+}
+
+.sidebar-avatar {
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.sidebar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-menu-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    line-height: 1.25;
+}
+
+.profile-menu-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--inf-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-menu-role {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--inf-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-menu-caret {
+    font-size: 0.75rem;
+    color: var(--inf-text-muted);
+    flex-shrink: 0;
+}
+
+/* Fixed-positioned from the trigger's measured rect, so it escapes the
+   sidebar's overflow clipping and never overflows the viewport. */
+.profile-menu-popup {
+    z-index: 1060;
+    background: var(--inf-card);
+    border: 1px solid var(--inf-border);
+    border-radius: var(--inf-radius);
+    box-shadow: var(--inf-shadow-lg);
+    padding: 0.4rem;
+    animation: profileMenuIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: calc(100vw - 20px);
+}
+
+@keyframes profileMenuIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.profile-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.65rem 0.6rem;
+    min-width: 0;
+}
+
+.profile-menu-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 0.95rem;
+}
+
+.profile-menu-head-text {
+    min-width: 0;
+}
+
+.profile-menu-head-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--inf-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-menu-head-sub {
+    font-size: 0.76rem;
+    color: var(--inf-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-menu-badge,
+.profile-role-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--inf-primary);
+    background: var(--inf-primary-subtle);
+}
+
+.profile-role-pill {
+    margin-top: 0;
+    font-size: 0.75rem;
+}
+
+.profile-menu-divider {
+    height: 1px;
+    background: var(--inf-border-light);
+    margin: 0.25rem 0.35rem;
+}
+
+.profile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.55rem 0.6rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--inf-radius-sm);
+    color: var(--inf-text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    transition: background var(--inf-transition), color var(--inf-transition);
+}
+
+.profile-menu-item i {
+    font-size: 1rem;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.profile-menu-item:hover {
+    background: var(--inf-hover-row);
+    color: var(--inf-primary);
+}
+
+.profile-menu-item:focus-visible {
+    outline: 2px solid var(--inf-primary);
+    outline-offset: -2px;
+}
+
+.profile-menu-item.danger,
+.profile-menu-item.danger:hover {
+    color: var(--inf-danger);
+}
+
+.profile-menu-item.danger:hover {
+    background: var(--inf-danger-subtle);
+}
+
+/* ── PROFILE PAGE ── */
+.profile-avatar-xl {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: var(--inf-primary-subtle);
+    color: var(--inf-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-avatar-xl img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Collapsed rail: the label is hidden but the avatar stays, so the trigger
+   remains a real hit target and the popup is unchanged. */
+body.sidebar-collapsed .sidebar .profile-menu-text,
+body.sidebar-collapsed .sidebar .profile-menu-caret {
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar .profile-menu-trigger {
+    justify-content: center;
 }
 
 /* ── ANIMATIONS ── */
