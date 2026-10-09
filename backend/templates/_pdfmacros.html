@@ -1,0 +1,128 @@
+{# ============================================================================
+   Shared Jinja macros for xhtml2pdf PDF themes (invoice + quotation).
+   Data contract is identical across all themes — only presentation differs.
+
+   content_frame bleeds over the header/footer. Keep bodies compact; the
+   overflow guard in pdf_render.py falls back to a paged layout if not.
+   ============================================================================ #}
+
+{# ---- Numbers ---------------------------------------------------------- #}
+{% macro amt(v) %}{{ '{:,.0f}'.format(v or 0) }}/-{% endmacro %}
+{% macro amt2(v) %}{{ '{:,.2f}'.format(v or 0) }}{% endmacro %}
+{% macro num(v) %}{{ '{:,.0f}'.format(v or 0) }}{% endmacro %}
+{% macro qty(v) %}{{ '%g'|format(v or 0) }}{% endmacro %}
+
+{# ---- Dates ------------------------------------------------------------ #}
+{% macro dt(v, f='%d/%m/%Y') %}{{ v.strftime(f) if v else '—' }}{% endmacro %}
+{% macro dmy(v) %}{{ v.strftime('%d %b %Y') if v else '—' }}{% endmacro %}
+
+{# ---- Safe multiline text ----------------------------------------------
+   Replaces the old  {{ x|replace('\n','<br>')|safe }}  pattern which was an
+   HTML-injection hole (unescaped user text reaching the PDF parser).
+   Each line is escaped first, then joined.                                  #}
+{% macro nl(v) %}
+{%- if v -%}{%- for line in (v|string).split('\n') -%}{{ line|e }}<br>{%- endfor -%}{%- endif -%}
+{% endmacro %}
+
+{# ---- Amount in words (Indian numbering: Crore / Lakh / Thousand) -------
+   The word tables are declared INSIDE each macro on purpose: under
+   {% import "_pdfmacros.html" as m %} a top-level {% set %} is not visible
+   inside macro bodies, which raises "'ONES' is undefined" at render time.
+
+   Decomposition uses modulo-after-divide so each segment is independent:
+     crore = v // 10^7 . lakh = (v % 10^7) // 10^5
+     thousand = (v % 10^5) // 10^3 . last3 = v % 10^3
+   The trailing last3 is passed whole into three_digit() so the
+   "Hundred and" part is emitted correctly (e.g. 100 -> "One Hundred").
+   Every segment goes through two_digit()/three_digit() rather than a bare
+   list lookup, otherwise values >= 20 render blank.                      #}
+{% macro two_digit(x) %}
+  {%- set ONES = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'] -%}
+  {%- set TENS = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'] -%}
+  {%- set x = (x or 0)|int -%}
+  {%- if x < 0 -%}{%- elif x == 0 -%}Zero
+  {%- elif x < 20 -%}{{ ONES[x] }}
+  {%- elif x < 100 -%}{{ TENS[(x // 10)] }}{% if x % 10 %}-{{ ONES[x % 10] }}{% endif %}
+  {%- endif -%}
+{% endmacro %}
+
+{% macro three_digit(x) %}
+  {%- set ONES = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'] -%}
+  {%- set x = (x or 0)|int -%}
+  {%- set h = (x // 100)|int -%}
+  {%- set r = (x % 100)|int -%}
+  {%- if x == 0 -%}
+  {%- elif h and r -%}{{ ONES[h] }} Hundred and {{ two_digit(r) }}
+  {%- elif h -%}{{ ONES[h] }} Hundred
+  {%- else -%}{{ two_digit(r) }}
+  {%- endif -%}
+{% endmacro %}
+
+{% macro amount_in_words(value) %}
+  {%- set v = ((value or 0) | float) | round(0, 'floor') | int -%}
+  {%- if v <= 0 -%}
+    Zero Rupees Only
+  {%- else -%}
+    {%- set crore    = (v // 10000000)|int -%}
+    {%- set lakh     = ((v % 10000000) // 100000)|int -%}
+    {%- set thousand = ((v % 100000) // 1000)|int -%}
+    {%- set last3    = (v % 1000)|int -%}
+    {%- set parts = [] -%}
+    {%- if crore %}{% set _ = parts.append(two_digit(crore) ~ ' Crore') %}{% endif -%}
+    {%- if lakh %}{% set _ = parts.append(two_digit(lakh) ~ ' Lakh') %}{% endif -%}
+    {%- if thousand %}{% set _ = parts.append(two_digit(thousand) ~ ' Thousand') %}{% endif -%}
+    {%- set tail = three_digit(last3) -%}
+    {%- if tail != '' %}{% set _ = parts.append(tail) %}{% endif -%}
+    {{ parts|join(' ') }} Rupees Only
+  {%- endif -%}
+{% endmacro %}
+
+{# ---- Payment / status helpers ----------------------------------------- #}
+{% macro status_label(inv) %}
+  {%- if inv.status == 'Paid' -%}PAID
+  {%- elif inv.status == 'Partially Paid' -%}PART PAID
+  {%- else -%}{{ inv.status|upper }}{%- endif -%}
+{% endmacro %}
+
+{% macro amount_words_label(value) %}
+  {%- set n = ((value or 0) | float) | round(0, 'floor') | int -%}
+  {%- set paise = (((value or 0) | float) - n) | round(2) | float -%}
+  {%- if paise > 0 -%}
+    {{ amount_in_words(value) }} and {{ '{:.0f}'.format(paise * 100) }} Paise Only
+  {%- else -%}
+    {{ amount_in_words(value) }}
+  {%- endif -%}
+{% endmacro %}
+
+{# ---- Reusable fragments ----------------------------------------------- #}
+{% macro footer_bar(profile) %}
+  {%- set parts = [] -%}
+  {%- if profile.email %}{% set _ = parts.append(profile.email) %}{% endif -%}
+  {%- if profile.website %}{% set _ = parts.append(profile.website) %}{% endif -%}
+  {%- if profile.phone %}{% set _ = parts.append(profile.phone) %}{% endif -%}
+  {%- if profile.address %}{% set _ = parts.append(profile.address) %}{% endif -%}
+  {{ parts|join('   |   ') }}
+{% endmacro %}
+
+{% macro bank_block(profile) %}
+  {%- if profile.gst_number %}<span class="lbl">GST IN NO :</span> {{ profile.gst_number }}<br>{% endif -%}
+  <span class="lbl">Company :</span> {{ profile.name|upper }}<br>
+  {%- if profile.bank_name %}<span class="lbl">Bank :</span> {{ profile.bank_name }}<br>{% endif -%}
+  {%- if profile.bank_branch %}<span class="lbl">Branch :</span> {{ profile.bank_branch }}<br>{% endif -%}
+  {%- if profile.bank_account %}<span class="lbl">A/C No :</span> {{ profile.bank_account }}<br>{% endif -%}
+  {%- if profile.bank_ifsc %}<span class="lbl">IFSC :</span> {{ profile.bank_ifsc }}{% endif -%}
+{% endmacro %}
+
+{# NOTE: qr is passed explicitly — Jinja macros imported via `import` do not
+   see the caller's context, so referencing `qr_base64` inside would fail. #}
+{% macro upi_qr(profile, amount, qr, label='Scan & Pay', width='58px') %}
+  {%- if profile.upi_id and qr and amount and amount > 0 -%}
+  <table cellspacing="0" cellpadding="0"><tr>
+    <td valign="middle"><img src="data:image/png;base64,{{ qr }}" style="width:{{ width }};" alt="Scan to Pay"></td>
+    <td valign="middle" style="padding-left:8px;">
+      <span class="lbl">{{ label }}</span><br>
+      <span class="qrcap">{{ profile.upi_id }}</span>
+    </td>
+  </tr></table>
+  {%- endif -%}
+{% endmacro %}

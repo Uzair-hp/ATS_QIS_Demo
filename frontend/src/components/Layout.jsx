@@ -97,6 +97,10 @@ export default function Layout({ title, breadcrumb, children }) {
             <i className="bi bi-gear-fill"></i>
             <span className="nav-text">Company Settings</span>
           </NavLink>
+          <NavLink to="/help" className={navClass}>
+            <i className="bi bi-question-circle-fill"></i>
+            <span className="nav-text">Help &amp; Support</span>
+          </NavLink>
         </div>
 
         <div className="sidebar-footer">

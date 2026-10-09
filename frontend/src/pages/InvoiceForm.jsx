@@ -141,6 +141,18 @@ export default function InvoiceForm() {
                 <h6 className="fw-bold mb-0" style={{ fontSize: '0.9rem' }}><i className="bi bi-list-check me-2"></i>Line Items</h6>
                 <button type="button" className="btn btn-inf btn-sm" onClick={() => setItems([...items, { ...blankItem }])}><i className="bi bi-plus-lg me-1"></i>Add Item</button>
               </div>
+              {/* Column captions. The row below is 12 columns wide in total; before this
+                  existed the only clue to each field was its placeholder, which
+                  disappears as soon as you start typing. */}
+              <div className="row g-2 mb-1">
+                <div className="col-md-3 item-grid-head">Service</div>
+                <div className="col-md-2 item-grid-head">HSN / SAC</div>
+                <div className="col-md-1 item-grid-head">Qty</div>
+                <div className="col-md-2 item-grid-head">Rate</div>
+                <div className="col-md-2 item-grid-head">Description</div>
+                <div className="col-md-1 item-grid-head text-end">Amount</div>
+                <div className="col-md-1" aria-hidden="true"></div>
+              </div>
               {items.map((it, i) => (
                 <div className="row g-2 mb-2 align-items-start" key={i}>
                   <div className="col-md-3">
@@ -151,9 +163,8 @@ export default function InvoiceForm() {
                   <div className="col-md-2"><input className="form-control form-control-sm" placeholder="HSN" value={it.hsn_code} onChange={(e) => updateItem(i, 'hsn_code', e.target.value)} /></div>
                   <div className="col-md-1"><input type="number" className="form-control form-control-sm" placeholder="Qty" value={it.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} /></div>
                   <div className="col-md-2"><input type="number" step="0.01" className="form-control form-control-sm" placeholder="Rate" value={it.rate} onChange={(e) => updateItem(i, 'rate', e.target.value)} /></div>
-                  <div className="col-md-3"><input className="form-control form-control-sm" placeholder="Description" value={it.description} onChange={(e) => updateItem(i, 'description', e.target.value)} /></div>
-                  <div className="col-md-1 text-end small pt-2">₹{((parseFloat(it.quantity) || 0) * (parseFloat(it.rate) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                  <div className="col-12 col-md-0 d-none"></div>
+                  <div className="col-md-2"><input className="form-control form-control-sm" placeholder="Description" value={it.description} onChange={(e) => updateItem(i, 'description', e.target.value)} /></div>
+                  <div className="col-md-1 text-end item-grid-amount">₹{((parseFloat(it.quantity) || 0) * (parseFloat(it.rate) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                   <div className="col-md-1 text-end">
                     <button type="button" className="btn btn-inf-outline btn-sm text-danger" onClick={() => setItems(items.filter((_, x) => x !== i))}><i className="bi bi-trash"></i></button>
                   </div>

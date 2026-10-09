@@ -1,0 +1,161 @@
+{# ============================================================================
+   Q4 · QUOTATION COMPACT  (many line items, e.g. AMC / AMC renewal lists)
+   ============================================================================ #}
+{% import "_pdfmacros.html" as m %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quotation {{ quotation.quotation_number }}</title>
+<style>
+@page { size: a4 portrait; margin: 0.6cm 0.8cm 0.4cm 0.8cm; }
+}
+* { margin:0; padding:0; }
+body { font-family: Helvetica, Arial, sans-serif; color:#000; font-size:8.5pt; line-height:1.24; }
+    .logo-plate { background-color:#ffffff; padding:7px 12px; }
+.hdr { background-color:#007acc; color:#fff; }
+.hdr td { padding:6px 0.8cm; }
+.logo-cell { padding:0; }
+.doc-title { font-size:13pt; font-weight:bold; letter-spacing:2px; text-align:center; }
+.doc-num { font-size:8pt; text-align:center; letter-spacing:0.5px; }
+.lbl { font-weight:bold; }
+.subject { text-align:center; font-size:11pt; font-weight:bold; color:#007acc; letter-spacing:1px; padding: 2px 0 3px 0; }
+.items th { background-color:#007acc; color:#fff; border:1px solid #007acc; padding:3px 4px; font-size:7.6pt; text-align:center; letter-spacing:0.3px; }
+.items td { border:1px solid #bbb; padding:2.8px 4px; vertical-align:top; font-size:8.2pt; }
+.item-desc { font-size:7.2pt; color:#333; }
+.kv td { padding:1.8px 0; font-size:8.2pt; }
+.kv td.k { color:#444; width:45%; }
+.kv td.v { font-weight:bold; text-align:right; }
+.totals td { border:1px solid #bbb; padding:3px 6px; font-size:8.2pt; }
+.grand td { background-color:#007acc; color:#fff; font-weight:bold; font-size:9.5pt; border-color:#007acc; }
+.words { font-size:7.4pt; padding:3px 5px; border:1px solid #bbb; margin-top:3px; }
+.sign { border:1px solid #bbb; }
+.sign td { padding:4px 6px; }
+.sign-box { border:1px solid #bbb; padding: 3px 6px; text-align:center; }
+.footer-bar { background-color:#007acc; color:#fff; text-align:center; font-size:7.6pt; padding:7px 0.8cm; }
+.tr { text-align:right; } .tc { text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="headerContent">
+    <table width="100%" cellspacing="0" cellpadding="0" class="hdr"><tr><td style="height:4px;"></td></tr></table>
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td width="58%" class="logo-cell" valign="middle">
+            {% if logo_base64 %}
+            <table cellspacing="0" cellpadding="0" class="logo-plate"><tr><td><img src="data:image/png;base64,{{ logo_base64 }}" style="width:140px;" alt="{{ profile.name }}"></td></tr></table>
+            {% else %}<span style="font-size:14pt; font-weight:bold; color:#007acc;">{{ profile.name }}</span>{% endif %}
+        </td>
+        <td width="42%" class="hdr" valign="middle">
+            <div class="doc-title">QUOTATION</div>
+            <div class="doc-num">{{ quotation.quotation_number }}</div>
+        </td>
+    </tr></table>
+</div>
+
+{% if quotation.subject %}<div class="subject">{{ quotation.subject|upper }}</div>{% endif %}
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="52%" valign="top" style="padding:4px 5px; border:1px solid #bbb;">
+        <span class="lbl">PROPOSED FOR :</span><br>
+        <span class="lbl">{{ quotation.client.company_name or quotation.client.name }}</span><br>
+        {% if quotation.client.address %}{{ m.nl(quotation.client.address) }}{% endif %}
+        {% if quotation.client.phone %}{{ quotation.client.phone }}<br>{% endif %}
+        {% if quotation.client.company_name and quotation.client.name %}<span class="lbl">Attn:</span> {{ quotation.client.name }}{% endif %}
+        {% if quotation.delivery_address %}<br><span class="lbl">Site:</span> {{ m.nl(quotation.delivery_address) }}{% endif %}
+    </td>
+    <td width="48%" valign="top" style="padding:4px 5px; border:1px solid #bbb;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="kv">
+            <tr><td class="k lbl">Quotation No.</td><td class="v">{{ quotation.quotation_number }}</td></tr>
+            <tr><td class="k lbl">Date</td><td class="v">{{ m.dt(quotation.date_created) }}</td></tr>
+            {% if quotation.valid_until %}<tr><td class="k lbl">Valid Until</td><td class="v">{{ m.dt(quotation.valid_until) }}</td></tr>{% endif %}
+            {% if quotation.estimated_timeline %}<tr><td class="k lbl">Timeline</td><td class="v">{{ quotation.estimated_timeline }}</td></tr>{% endif %}
+            {% if quotation.payment_terms %}<tr><td class="k lbl">Payment</td><td class="v">{{ quotation.payment_terms }}</td></tr>{% endif %}
+            {% if quotation.client.gst_number %}<tr><td class="k lbl">GST No.</td><td class="v">{{ quotation.client.gst_number }}</td></tr>{% endif %}
+        </table>
+    </td>
+</tr></table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0" class="items" repeat="1">
+
+<thead><tr>
+    <th width="1.1cm">SR.</th><th style="text-align:left;" width="7.0cm">PARTICULARS</th><th width="2.3cm">HSN</th><th width="1.5cm">QTY</th><th width="3.0cm">RATE</th><th width="4.5cm">AMOUNT</th>
+</tr></thead>
+<tbody>
+{% for item in quotation.items %}
+<tr>
+    <td class="tc" width="1.1cm">{{ loop.index }}</td>
+    <td class="" width="7.0cm"><span class="lbl">{{ item.service_name }}</span>
+        {% if item.description %}<br><span class="item-desc">{{ m.nl(item.description) }}</span>{% endif %}</td>
+    <td class="tc" width="2.3cm">{{ item.hsn_code or '' }}</td>
+    <td class="tc" width="1.5cm">{{ m.qty(item.quantity) }}</td>
+    <td class="tr" width="3.0cm">{{ m.num(item.rate) }}</td>
+    <td class="tr" width="4.5cm">{{ m.amt(item.amount) }}</td>
+</tr>
+{% endfor %}
+<tr>
+    <td colspan="5" class="tr lbl">SUB TOTAL</td>
+    <td class="tr lbl">{{ m.amt(quotation.sub_total) }}</td>
+</tr>
+</tbody>
+</table>
+
+<div style="height:4px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0"><tr>
+    <td width="50%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr><td style="font-size:8pt; line-height:1.45;">
+            {% if profile.gst_number %}<span class="lbl">GSTIN :</span> {{ profile.gst_number }}<br>{% endif %}
+            {% if profile.bank_name %}<span class="lbl">Bank :</span> {{ profile.bank_name }}<br>{% endif %}
+            {% if profile.bank_account %}<span class="lbl">A/C :</span> {{ profile.bank_account }}<br>{% endif %}
+            {% if profile.bank_ifsc %}<span class="lbl">IFSC :</span> {{ profile.bank_ifsc }}<br>{% endif %}
+            {% if profile.msme_number %}<span class="lbl">MSME :</span> {{ profile.msme_number }}{% endif %}
+        </td></tr></table>
+        {% if quotation.notes %}
+        <div style="height:3px;"></div>
+        <table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr><td style="font-size:7.6pt;">
+            <span class="lbl">TERMS :</span> {{ m.nl(quotation.notes) }}
+        </td></tr></table>
+        {% endif %}
+    </td>
+    <td width="50%" valign="top" style="padding:0;">
+        <table width="100%" cellspacing="0" cellpadding="0" class="totals">
+            <tr><td class="lbl">Subtotal</td><td class="tr">{{ m.amt(quotation.sub_total) }}</td></tr>
+            {% if quotation.discount_amount and quotation.discount_amount > 0 %}
+            <tr><td class="lbl">Discount{% if quotation.discount_type == 'percent' %} ({{ m.qty(quotation.discount) }}%){% endif %}</td><td class="tr">- {{ m.amt(quotation.discount_amount) }}</td></tr>
+            {% endif %}
+            {% if quotation.gst_percent and quotation.gst_percent > 0 %}
+            <tr><td class="lbl">GST @ {{ m.qty(quotation.gst_percent) }}%</td><td class="tr">{{ m.amt(quotation.gst_amount) }}</td></tr>
+            {% endif %}
+            <tr class="grand"><td>QUOTATION VALUE</td><td class="tr">{{ m.amt(quotation.total_amount) }}</td></tr>
+        </table>
+        <div class="words"><span class="lbl">In words:</span> {{ m.amount_words_label(quotation.total_amount) }}</div>
+    </td>
+</tr></table>
+
+<div style="height:5px;"></div>
+
+<table width="100%" cellspacing="0" cellpadding="0" class="sign"><tr>
+    <td width="55%" valign="bottom" style="font-size:8.4pt; padding-top:26px;">
+        Client Acceptance : ______________________<br>
+        Name &amp; Date : ___________________________
+    </td>
+    <td width="45%" valign="top" class="sign-box">
+        <span class="lbl">For {{ profile.name|upper }}</span><br>
+        {% if profile.stamp_image %}
+        <img src="data:image/png;base64,{{ profile.stamp_image }}" style="width:90px;" alt="Stamp"><br>
+        {% else %}<div style="height:48px;"></div>{% endif %}
+        Authorized Signatory
+    </td>
+</tr></table>
+
+<div id="footerContent">
+    <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td class="footer-bar">{{ m.footer_bar(profile) }}</td>
+    </tr></table>
+</div>
+
+</body>
+</html>

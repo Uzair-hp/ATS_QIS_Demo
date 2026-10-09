@@ -669,6 +669,207 @@ body.sidebar-collapsed .main-content {
     color: var(--inf-text);
 }
 
+/* Placeholders were falling back to Bootstrap's #6c757d, which reads washed
+   out against the tinted input background — especially the hint text on the
+   item rows. Slate 700 keeps them legible without competing with real values. */
+.form-control::placeholder,
+.form-select::placeholder {
+    color: var(--inf-text-secondary);
+    opacity: 1;
+    font-weight: 400;
+}
+
+[data-theme="dark"] .form-control::placeholder,
+[data-theme="dark"] .form-select::placeholder {
+    color: var(--inf-text-muted);
+    opacity: 1;
+}
+
+/* Number inputs: the native up/down stepper overlaps the value in the narrow
+   qty/rate columns and makes the row look misaligned. Values here are typed,
+   not nudged, so the stepper only gets in the way. */
+.form-control[type="number"] {
+    -moz-appearance: textfield;
+    -ms-appearance: textfield;
+    appearance: textfield;
+}
+
+.form-control[type="number"]::-webkit-outer-spin-button,
+.form-control[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+/* ── HELP & SUPPORT ── */
+.help-search {
+    position: relative;
+    min-width: 320px;
+    flex: 1 1 320px;
+    max-width: 440px;
+}
+
+.help-search > .bi-search {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--inf-text-muted);
+    pointer-events: none;
+    font-size: 0.85rem;
+}
+
+.help-search .form-control {
+    padding-left: 2.4rem;
+    padding-right: 2.4rem;
+}
+
+.help-search-clear {
+    position: absolute;
+    right: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: 0;
+    color: var(--inf-text-muted);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.9rem;
+}
+
+.help-search-clear:hover { color: var(--inf-danger); }
+
+.help-step {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--inf-border);
+    border-radius: var(--inf-radius-sm, 8px);
+    background: var(--inf-card-subtle, transparent);
+}
+
+.help-step-n {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--inf-primary);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.help-step-link {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--inf-primary);
+}
+
+.help-step-link:hover { text-decoration: underline; }
+
+.help-accordion-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--inf-border);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--inf-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.help-accordion-head:hover { background: var(--inf-card-subtle); }
+
+.help-accordion-head:focus-visible {
+    outline: 2px solid var(--inf-primary);
+    outline-offset: -2px;
+}
+
+.help-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--inf-primary-subtle);
+    color: var(--inf-primary);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+}
+
+.help-qa { border-bottom: 1px solid var(--inf-border); }
+
+.help-qa:last-child { border-bottom: 0; }
+
+.help-qa-q {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: left;
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--inf-text-secondary);
+    cursor: pointer;
+}
+
+.help-qa-q:hover { background: var(--inf-card-subtle); color: var(--inf-text); }
+
+.help-qa-a {
+    padding: 0 1.25rem 0.9rem;
+    font-size: 0.83rem;
+    line-height: 1.6;
+    color: var(--inf-text-secondary);
+}
+
+.help-tip {
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--inf-border);
+    border-left: 3px solid var(--inf-primary);
+    border-radius: var(--inf-radius-sm, 8px);
+}
+
+/* Column captions for the repeating item grid, so each field says what it is
+   instead of relying on placeholder text alone. */
+.item-grid-head {
+    display: none;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--inf-text-muted);
+    padding: 0 0.25rem 0.4rem;
+}
+
+@media (min-width: 768px) {
+    .item-grid-head { display: block; }
+}
+
+/* Caption and value share one cell so they cannot drift apart across rows. */
+.item-grid-amount {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--inf-text-secondary);
+    padding: 0.45rem 0.25rem 0;
+    white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+    .item-grid-amount { padding-top: 0.15rem; }
+}
+
 .form-label {
     font-weight: 700;
     font-size: 0.82rem;

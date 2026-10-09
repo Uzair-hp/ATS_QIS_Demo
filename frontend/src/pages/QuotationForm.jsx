@@ -125,6 +125,16 @@ export default function QuotationForm() {
                 <h6 className="fw-bold mb-0" style={{ fontSize: '0.9rem' }}><i className="bi bi-list-check me-2"></i>Line Items</h6>
                 <button type="button" className="btn btn-inf btn-sm" onClick={() => setItems([...items, { ...blankItem }])}><i className="bi bi-plus-lg me-1"></i>Add Item</button>
               </div>
+              {/* Column captions, matching InvoiceForm. Placeholders vanish once you type,
+                  so they cannot be the only label. 3+2+1+2+3+1 = 12 exactly. */}
+              <div className="row g-2 mb-1">
+                <div className="col-md-3 item-grid-head">Service</div>
+                <div className="col-md-2 item-grid-head">HSN / SAC</div>
+                <div className="col-md-1 item-grid-head">Qty</div>
+                <div className="col-md-2 item-grid-head">Rate</div>
+                <div className="col-md-3 item-grid-head">Description</div>
+                <div className="col-md-1" aria-hidden="true"></div>
+              </div>
               {items.map((it, i) => (
                 <div className="row g-2 mb-2 align-items-start" key={i}>
                   <div className="col-md-3">
