@@ -5,18 +5,31 @@ import Layout from '../components/Layout'
 import ChangePasswordForm from '../components/ChangePasswordForm'
 import { useToast } from '../context/ToastContext'
 
-const profileFields = [
-  ['name', 'Company Name'],
+const contactFields = [
   ['tagline', 'Tagline'],
   ['email', 'Email'],
   ['phone', 'Phone'],
   ['website', 'Website'],
+]
+
+const taxFields = [
   ['gst_number', 'GST Number'],
   ['msme_number', 'MSME Number'],
-  ['address', 'Address'],
-  ['default_gst_percent', 'Default GST %'],
-  ['default_due_days', 'Default Due Days'],
 ]
+
+function CompanyField({ name, id, label, value, onChange }) {
+  return (
+    <div className="company-field">
+      <label className="company-field-label" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        className="form-control company-field-input"
+        value={value ?? ''}
+        onChange={onChange}
+      />
+    </div>
+  )
+}
 
 const bankFields = [
   ['bank_name', 'Bank Name'], ['bank_account', 'Bank Account'],
@@ -83,9 +96,11 @@ export default function Settings() {
 
   const saveCompany = async (e) => {
     e.preventDefault()
+    // Both sub-tabs post to the same endpoint, so name the tab that was saved.
+    const isBank = companySub === 'bank'
     try {
       await api.post('/settings/', buildFormData())
-      push('Company settings saved!', 'success')
+      push(isBank ? 'Bank details saved!' : 'Company settings saved!', 'success')
       setStampFile(null); setRemoveStamp(false)
       setLogoFile(null); setRemoveLogo(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -132,7 +147,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="inf-card animate-in">
+      <div className={`inf-card animate-in${activeTab === 'company' ? ' company-profile-card' : ''}`}>
         <div style={{ borderBottom: '1px solid var(--inf-border-light)' }}>
           <ul className="nav settings-tabs" role="tablist">
             {tabs.map((tab) => (
@@ -169,98 +184,186 @@ export default function Settings() {
               </div>
 
               {companySub === 'profile' && (
-                <div className="row g-3">
-                  <div className="col-12">
-                    <h6 className="fw-bold mb-3">
-                      <i className="bi bi-person-badge me-2 text-primary"></i>
-                      Company Profile
-                    </h6>
-                  </div>
-
-                  {/* Logo upload box - compact left side */}
-                  <div className="col-md-6">
-                    <div className="profile-photo-block compact logo-paired">
-                      <div className="profile-photo-avatar">
-                        {form.logo_image && !removeLogo ? (
-                          <img
-                            src={`data:${form.logo_mime || 'image/png'};base64,${form.logo_image}`}
-                            alt="Company logo"
-                          />
-                        ) : (
-                          <span className="profile-photo-initials">{initialsOf(form.name)}</span>
-                        )}
-                      </div>
-                      <div className="profile-photo-meta">
-                        <label className="form-label mb-1">Company Logo</label>
-                        <input
-                          type="file"
-                          ref={logoRef}
-                          className="form-control form-control-sm"
-                          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-                          onChange={(e) => { setLogoFile(e.target.files[0]); setRemoveLogo(false) }}
+                <div className="company-profile">
+                  {/* Identity block: one logo, one name field, no duplicate avatar */}
+                  <div className="company-profile-identity">
+                    <button
+                      type="button"
+                      className="company-logo-avatar"
+                      onClick={() => logoRef.current?.click()}
+                      aria-label="Change company logo"
+                      title="Change company logo"
+                    >
+                      {form.logo_image && !removeLogo ? (
+                        <img
+                          src={`data:${form.logo_mime || 'image/png'};base64,${form.logo_image}`}
+                          alt="Company logo"
                         />
-                        <div className="form-text mt-1">
-                          PNG, JPEG, SVG. Max 2 MB.
-                          {form.logo_image && !removeLogo && (
-                            <>
-                              {' · '}
-                              <button type="button" className="btn btn-link btn-sm text-danger p-0 align-baseline" onClick={() => setRemoveLogo(true)}>
-                                Remove
-                              </button>
-                            </>
-                          )}
-                        </div>
+                      ) : (
+                        <span>{initialsOf(form.name)}</span>
+                      )}
+                      <span className="company-logo-caret" aria-hidden="true">
+                        <i className="bi bi-camera"></i>
+                      </span>
+                    </button>
+
+                    <div className="company-profile-identity-fields">
+                      <label className="company-field-label" htmlFor="cp-name">Company Name</label>
+                      <input
+                        id="cp-name"
+                        className="form-control company-field-input"
+                        value={form.name ?? ''}
+                        onChange={setFormVal('name')}
+                      />
+                      <div className="company-field-hint">
+                        PNG, JPEG, SVG. Max 2 MB.
+                        {logoFile && <span className="company-file-name"> · {logoFile.name}</span>}
+                        {form.logo_image && !removeLogo && !logoFile && (
+                          <>
+                            {' · '}
+                            <button
+                              type="button"
+                              className="company-inline-action"
+                              onClick={() => setRemoveLogo(true)}
+                            >
+                              Remove logo
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {profileFields.map(([key, label]) => {
-                    const isFullWidth = key === 'address'
-                    return (
-                      <div className={isFullWidth ? 'col-12' : 'col-md-6'} key={key}>
-                        <label className="form-label">{label}</label>
-                        {key === 'name' ? (
-                          <div className="identity-row">
-                            <div className="identity-avatar">
-                              {form.logo_image && !removeLogo ? (
-                                <img
-                                  src={`data:${form.logo_mime || 'image/png'};base64,${form.logo_image}`}
-                                  alt="Company logo"
-                                />
-                              ) : (
-                                <span className="identity-initials">{initialsOf(form.name)}</span>
-                              )}
-                            </div>
-                            <input className="form-control identity-input" value={form[key] ?? ''} onChange={setFormVal(key)} />
-                          </div>
-                        ) : key === 'address' ? (
-                          <textarea className="form-control" rows="2" value={form[key] ?? ''} onChange={setFormVal(key)} />
+                  <input
+                    type="file"
+                    ref={logoRef}
+                    className="company-file-input"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                    onChange={(e) => { setLogoFile(e.target.files[0]); setRemoveLogo(false) }}
+                  />
+
+                  <section className="company-section">
+                    <h6 className="company-section-title">Contact Details</h6>
+                    <div className="company-grid">
+                      {contactFields.map(([key, label]) => (
+                        <CompanyField
+                          key={key}
+                          name={key}
+                          id={`cp-${key}`}
+                          label={label}
+                          value={form[key]}
+                          onChange={setFormVal(key)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="company-section">
+                    <h6 className="company-section-title">Business &amp; Tax Details</h6>
+                    <div className="company-grid">
+                      {taxFields.map(([key, label]) => (
+                        <CompanyField
+                          key={key}
+                          name={key}
+                          id={`cp-${key}`}
+                          label={label}
+                          value={form[key]}
+                          onChange={setFormVal(key)}
+                        />
+                      ))}
+                      <div className="company-field company-field-full">
+                        <label className="company-field-label" htmlFor="cp-address">Address</label>
+                        <textarea
+                          id="cp-address"
+                          className="form-control company-textarea"
+                          rows="3"
+                          value={form.address ?? ''}
+                          onChange={setFormVal('address')}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="company-section">
+                    <h6 className="company-section-title">Invoice Defaults</h6>
+                    <div className="company-grid">
+                      <div className="company-field">
+                        <label className="company-field-label" htmlFor="cp-default_gst_percent">Default GST %</label>
+                        <input
+                          id="cp-default_gst_percent"
+                          type="number"
+                          className="form-control company-field-input"
+                          value={form.default_gst_percent ?? ''}
+                          onChange={setFormVal('default_gst_percent')}
+                        />
+                        <div className="company-field-hint">%</div>
+                      </div>
+                      <div className="company-field">
+                        <label className="company-field-label" htmlFor="cp-default_due_days">Default Due Days</label>
+                        <input
+                          id="cp-default_due_days"
+                          type="number"
+                          className="form-control company-field-input"
+                          value={form.default_due_days ?? ''}
+                          onChange={setFormVal('default_due_days')}
+                        />
+                        <div className="company-field-hint">days</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="company-section">
+                    <h6 className="company-section-title">Stamp / Seal</h6>
+                    <div className="company-stamp-row">
+                      <div
+                        className={`company-stamp-preview${form.stamp_image && !removeStamp ? ' has-image' : ''}`}
+                        aria-hidden={!(form.stamp_image && !removeStamp)}
+                      >
+                        {form.stamp_image && !removeStamp ? (
+                          <img
+                            src={`data:${form.stamp_mime || 'image/png'};base64,${form.stamp_image}`}
+                            alt="Current stamp"
+                          />
                         ) : (
-                          <input className="form-control" value={form[key] ?? ''} onChange={setFormVal(key)} />
+                          <i className="bi bi-file-earmark-image"></i>
                         )}
                       </div>
-                    )
-                  })}
 
-                  <div className="col-12">
-                    <label className="form-label">Stamp / Seal Image</label>
-                    {form.stamp_image && !removeStamp && (
-                      <div className="mb-2">
-                        <img
-                          src={`data:${form.stamp_mime || 'image/png'};base64,${form.stamp_image}`}
-                          alt="Stamp"
-                          style={{ maxHeight: 80 }}
-                        />
-                        <div>
-                          <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={() => setRemoveStamp(true)}>Remove stamp</button>
-                        </div>
+                      <div className="company-stamp-meta">
+                        <button
+                          type="button"
+                          className="btn btn-inf-outline btn-sm"
+                          onClick={() => fileRef.current?.click()}
+                        >
+                          <i className="bi bi-upload me-1"></i>Upload
+                        </button>
+                        {stampFile && <div className="company-file-name mt-2">{stampFile.name}</div>}
+                        <div className="company-field-hint">PNG, JPEG, GIF, WebP or SVG. Max 2 MB.</div>
+                        {form.stamp_image && !removeStamp && !stampFile && (
+                          <button
+                            type="button"
+                            className="company-inline-action danger mt-2"
+                            onClick={() => setRemoveStamp(true)}
+                          >
+                            Remove stamp
+                          </button>
+                        )}
                       </div>
-                    )}
-                    <input type="file" ref={fileRef} className="form-control" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" onChange={(e) => { setStampFile(e.target.files[0]); setRemoveStamp(false) }} />
-                    <div className="form-text">PNG, JPEG, GIF, WebP or SVG. Maximum 2 MB.</div>
-                  </div>
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileRef}
+                      className="company-file-input"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                      onChange={(e) => { setStampFile(e.target.files[0]); setRemoveStamp(false) }}
+                    />
+                  </section>
 
-                  <div className="col-12">
+                  <div className="company-profile-footer">
                     <button className="btn btn-inf">
                       <i className="bi bi-check-lg me-1"></i>
                       Save Company Settings
@@ -270,42 +373,56 @@ export default function Settings() {
               )}
 
               {companySub === 'bank' && (
-                <div className="row g-3" style={{ maxWidth: 720 }}>
-                  <div className="col-12">
-                    <h6 className="fw-bold mb-3">
+                <div className="company-profile">
+                  <section className="company-section company-section-first">
+                    <h6 className="company-section-title">
                       <i className="bi bi-bank me-2 text-primary"></i>
                       Bank &amp; Payment Details
                     </h6>
-                    <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>
-                      These details appear on invoices and quotations.
-                    </p>
-                  </div>
-
-                  {bankFields.map(([key, label]) => (
-                    <div className="col-md-6" key={key}>
-                      <label className="form-label">{label}</label>
-                      <input className="form-control" value={form[key] ?? ''} onChange={setFormVal(key)} />
+                    <div className="company-grid">
+                      {bankFields.map(([key, label]) => (
+                        <CompanyField
+                          key={key}
+                          name={key}
+                          id={`cp-${key}`}
+                          label={label}
+                          value={form[key]}
+                          onChange={setFormVal(key)}
+                        />
+                      ))}
                     </div>
-                  ))}
+                  </section>
 
-                  <div className="col-12">
-                    <hr className="my-3" />
-                    <h6 className="fw-bold mb-3">
+                  <section className="company-section">
+                    <h6 className="company-section-title">
                       <i className="bi bi-file-text me-2 text-primary"></i>
                       Terms &amp; Conditions
                     </h6>
-                  </div>
+                    <div className="company-grid">
+                      <div className="company-field company-field-full">
+                        <label className="company-field-label" htmlFor="cp-default_terms">Default Invoice Terms</label>
+                        <textarea
+                          id="cp-default_terms"
+                          className="form-control company-textarea"
+                          rows="3"
+                          value={form.default_terms ?? ''}
+                          onChange={setFormVal('default_terms')}
+                        />
+                      </div>
+                      <div className="company-field company-field-full">
+                        <label className="company-field-label" htmlFor="cp-default_quotation_terms">Default Quotation Terms</label>
+                        <textarea
+                          id="cp-default_quotation_terms"
+                          className="form-control company-textarea"
+                          rows="3"
+                          value={form.default_quotation_terms ?? ''}
+                          onChange={setFormVal('default_quotation_terms')}
+                        />
+                      </div>
+                    </div>
+                  </section>
 
-                  <div className="col-12">
-                    <label className="form-label">Default Invoice Terms</label>
-                    <textarea className="form-control" rows="2" value={form.default_terms ?? ''} onChange={setFormVal('default_terms')} />
-                  </div>
-                  <div className="col-12">
-                    <label className="form-label">Default Quotation Terms</label>
-                    <textarea className="form-control" rows="2" value={form.default_quotation_terms ?? ''} onChange={setFormVal('default_quotation_terms')} />
-                  </div>
-
-                  <div className="col-12">
+                  <div className="company-profile-footer">
                     <button className="btn btn-inf">
                       <i className="bi bi-check-lg me-1"></i>
                       Save Bank Details

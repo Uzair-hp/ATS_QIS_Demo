@@ -784,124 +784,236 @@ body.sidebar-collapsed .main-content {
     background: var(--inf-card-subtle);
 }
 
-/* ── PROFILE PHOTO BLOCK ── */
-.profile-photo-block {
+/* ── COMPANY PROFILE FORM (Settings → Company → Profile) ── */
+.company-profile {
+    width: 100%;
+    /* .inf-card clips its overflow, which would trap the sticky footer. */
+    position: relative;
+}
+
+/* .inf-card clips its overflow, which would trap the sticky footer. */
+.company-profile-card {
+    overflow: visible;
+}
+
+.company-profile-identity {
     display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem 1.1rem;
+    align-items: center;
+    gap: 20px;
+}
+
+.company-logo-avatar {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    padding: 0;
     border: 1px solid var(--inf-border);
     border-radius: var(--inf-radius);
     background: var(--inf-card-subtle);
-    flex-wrap: wrap;
-}
-
-.profile-photo-block.compact {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 0.85rem 0.75rem;
-    gap: 0.5rem;
-    min-width: 0;
-}
-
-.profile-photo-avatar {
-    width: 88px;
-    height: 88px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    overflow: hidden;
+    color: var(--inf-primary);
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--inf-primary), var(--inf-primary-dark));
-    border: 3px solid var(--inf-card);
-    box-shadow: var(--inf-shadow-sm);
+    cursor: pointer;
+    overflow: visible;
 }
 
-.profile-photo-block.compact .profile-photo-avatar {
-    width: 68px;
-    height: 68px;
-    border-width: 2px;
-}
-
-.profile-photo-avatar img {
+.company-logo-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 11px;
 }
 
-.profile-photo-initials {
-    font-size: 1.9rem;
-    font-weight: 800;
+.company-logo-avatar:focus-visible {
+    outline: 2px solid var(--inf-primary);
+    outline-offset: 2px;
+}
+
+.company-logo-caret {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--inf-primary);
     color: #ffffff;
-    letter-spacing: 0.5px;
-    line-height: 1;
+    border: 2px solid var(--inf-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
 }
 
-.profile-photo-block.compact .profile-photo-initials {
-    font-size: 1.5rem;
+.company-logo-caret:hover {
+    background: var(--inf-primary-dark);
 }
 
-.profile-photo-meta {
+.company-profile-identity-fields {
     flex: 1;
-    min-width: 240px;
-}
-
-.profile-photo-block.compact .profile-photo-meta {
     min-width: 0;
-    width: 100%;
-    text-align: left;
 }
 
-.profile-photo-block.compact .profile-photo-meta .form-label {
-    font-size: 0.78rem;
-    margin-bottom: 0.25rem;
+.company-section {
+    margin-top: 32px;
 }
 
-.profile-photo-block.compact .profile-photo-meta .form-control-sm {
-    padding: 0.35rem 0.6rem;
+.company-section-first {
+    margin-top: 0;
+}
+
+/* Matches the h6.fw-bold headings used on the other Settings tabs. */
+.company-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--inf-text);
+    letter-spacing: -0.2px;
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--inf-border-light);
+}
+
+.company-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+    row-gap: 16px;
+}
+
+.company-field-full {
+    grid-column: 1 / -1;
+}
+
+/* Same type treatment as .form-label elsewhere in Settings. */
+.company-field-label {
+    display: block;
+    font-weight: 700;
     font-size: 0.82rem;
+    color: var(--inf-text-secondary);
+    letter-spacing: 0.2px;
+    margin-bottom: 0.35rem;
 }
 
-.profile-photo-block.compact .form-text {
-    font-size: 0.72rem;
-  }
+/* Same metrics as .form-control; only the box height and padding differ, so
+   the 40px row height from the redesign is kept. */
+.company-field-input,
+.company-textarea {
+    height: 40px;
+    border-radius: var(--inf-radius-sm);
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 0 0.85rem;
+    background: var(--inf-input-bg);
+    color: var(--inf-text);
+}
 
-/* ── IDENTITY ROW (Logo + Name inline) ── */
-.identity-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.company-textarea {
+    height: auto;
+    padding: 0.6rem 0.85rem;
+    resize: vertical;
 }
-.identity-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--inf-primary), var(--inf-primary-dark));
-  border: 2px solid var(--inf-card);
-  box-shadow: var(--inf-shadow-sm);
-  font-size: 1.1rem;
+
+.company-field-hint {
+    font-size: 0.76rem;
+    color: var(--inf-text-muted);
+    margin-top: 0.35rem;
 }
-.identity-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+
+.company-file-name {
+    color: var(--inf-text-secondary);
+    font-weight: 600;
 }
-.identity-initials {
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: 0.5px;
-  line-height: 1;
+
+.company-inline-action {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--inf-primary);
+    text-decoration: underline;
 }
-.identity-input {
-  flex: 1;
-  min-width: 0;
+
+.company-inline-action.danger {
+    color: var(--inf-danger);
+}
+
+/* The native file input stays in the DOM and keeps working; the avatar and
+   Upload button drive it via a click() on the ref. */
+.company-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.company-stamp-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.company-stamp-preview {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    border: 1px dashed var(--inf-border);
+    border-radius: var(--inf-radius-sm);
+    background: var(--inf-card-subtle);
+    color: var(--inf-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    overflow: hidden;
+}
+
+.company-stamp-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.company-stamp-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.company-profile-footer {
+    position: sticky;
+    bottom: 0;
+    margin: 32px -24px -24px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--inf-border);
+    background: var(--inf-card);
+    display: flex;
+    justify-content: flex-end;
+    border-radius: 0 0 var(--inf-radius-lg) var(--inf-radius-lg);
+    z-index: 2;
+}
+
+@media (max-width: 767.98px) {
+    .company-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .company-profile-identity {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .company-profile-identity-fields {
+        width: 100%;
+    }
 }
 
 /* ── HELP & SUPPORT ── */
