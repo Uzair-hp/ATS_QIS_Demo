@@ -1,13 +1,11 @@
+```yaml
 services:
   - type: web
     name: ats-qis
     runtime: python
-    plan: starter
+    plan: free
     region: singapore
 
-    # Node is available on Render, so the SPA is built from source here rather
-    # than relying on the bundle committed to the repo. If you move to a host
-    # without Node, drop this line: setup.sh falls back to frontend/dist.
     buildCommand: |
       npm --prefix frontend ci
       npm --prefix frontend run build
@@ -25,29 +23,13 @@ services:
     healthCheckPath: /api/health
     autoDeployTrigger: commit
 
-    # Without this the filesystem is ephemeral and every deploy deletes the
-    # database - every quotation, invoice and client with it. This is the single
-    # most important field in this file.
-    disk:
-      name: ats-data
-      mountPath: /var/data
-      sizeGB: 1
-
     envVars:
       - key: FLASK_ENV
         value: production
 
-      # generateValue keeps the key out of the repo. Changing it later logs every
-      # user out, so do not regenerate it casually.
       - key: SECRET_KEY
         generateValue: true
 
-      # Points the SQLite file at the mounted disk above.
       - key: DATABASE_PATH
-        value: /var/data/ats.db
-
-      # Only needed for a split deployment where the SPA is on another host.
-      # Left unset: the SPA is same-origin, so CORS defaults to localhost and
-      # nothing cross-origin is allowed.
-      # - key: ALLOWED_ORIGINS
-      #   value: https://app.example.com
+        value: /tmp/ats.db
+```
