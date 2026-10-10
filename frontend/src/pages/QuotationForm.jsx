@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import TemplateSelect from '../components/TemplateSelect'
+import ThemePreview from '../components/ThemePreview'
+import { groupThemes, defaultFor, findTheme } from '../lib/pdfThemes'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -24,6 +27,14 @@ export default function QuotationForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ ...blankItem }])
   const [error, setError] = useState('')
+  // '' means "follow the company default"; see InvoiceForm for the reasoning.
+  const [pdfTheme, setPdfTheme] = useState('')
+  // The catalogue TemplateSelect already fetched, reused to show the preview of
+  // whatever is selected without a second request.
+  const [themes, setThemes] = useState(null)
+  const selectedTheme = useMemo(
+    () => findTheme(groupThemes(themes, 'quotation'), pdfTheme || defaultFor(themes, 'quotation')),
+    [themes, pdfTheme])
 
   useEffect(() => {
     api.get('/quotations/meta').then((res) => {
@@ -31,6 +42,8 @@ export default function QuotationForm() {
       if (!id) {
         setGstPercent(res.data.company.default_gst_percent ?? 0)
         setNotes(res.data.company.default_quotation_terms || '')
+        // A new quotation pre-selects the company default without saving it.
+        setPdfTheme(res.data.company.quotation_pdf_theme || '')
       }
     })
     if (id) {
@@ -45,6 +58,8 @@ export default function QuotationForm() {
         setDiscountType(q.discount_type)
         setGstPercent(q.gst_percent || 0)
         setNotes(q.notes || '')
+        // Edit mode pre-selects the template saved on this quotation.
+        setPdfTheme(q.pdf_theme || '')
         if (q.date_created && q.valid_until) {
           setValidDays(Math.max(1, Math.round((new Date(q.valid_until) - new Date(q.date_created)) / 86400000)))
         }
@@ -79,6 +94,7 @@ export default function QuotationForm() {
       client_id: clientId, valid_days: validDays, estimated_timeline: estimatedTimeline,
       subject, payment_terms: paymentTerms, delivery_address: deliveryAddress,
       discount, discount_type: discountType, gst_percent: gstPercent, notes, items,
+      pdf_theme: pdfTheme,
     }
     try {
       let res
@@ -154,9 +170,25 @@ export default function QuotationForm() {
               </datalist>
             </div></div>
 
-            <div className="inf-card"><div className="card-body p-4">
+            <div className="inf-card mb-3"><div className="card-body p-4">
               <h6 className="fw-bold mb-2" style={{ fontSize: '0.9rem' }}><i className="bi bi-card-text me-2"></i>Notes</h6>
               <textarea className="form-control" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div></div>
+
+            <div className="inf-card"><div className="card-body p-4">
+              <h6 className="fw-bold mb-3" style={{ fontSize: '0.9rem' }}><i className="bi bi-file-earmark-pdf me-2"></i>PDF Template</h6>
+              <div className="row g-3">
+                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
+                <div className="col-md-6">
+                  <ThemePreview
+                    doc="quotations"
+                    theme={selectedTheme}
+                    title="Sample preview"
+                    paged
+                    showEmpty
+                  />
+                </div>
+              </div>
             </div></div>
           </div>
 

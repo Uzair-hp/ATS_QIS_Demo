@@ -6,7 +6,8 @@ import base64
 from flask import Blueprint, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from models import db, CompanyProfile
-from pdf_themes import themes_json, preview_path
+from pdf_themes import themes_json, preview_path, is_allowed
+from routes.validation import validate_pdf_theme, validation_error_response
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -114,9 +115,14 @@ def get_themes():
 def theme_preview(doc, key, page):
     """Serve a pre-rendered preview image for a PDF theme.
 
-    The key is validated against a safe pattern inside preview_path, so
-    the URL cannot escape the _preview directory.
+    Two checks, not one. preview_path validates the key against a safe pattern,
+    so the URL cannot escape the _preview directory. is_allowed then restricts
+    it to the templates the API is willing to offer: _preview/ also holds images
+    for the reference templates that were deliberately left out of the
+    allowlist, and those must not be reachable just by knowing the filename.
     """
+    if not is_allowed('invoice' if doc == 'invoices' else 'quotation', key):
+        return jsonify({'error': 'preview not available'}), 404
     path = preview_path(doc, key, page)
     if not path:
         return jsonify({'error': 'preview not available'}), 404
@@ -160,8 +166,17 @@ def update_settings():
         profile.default_gst_percent = 18.0
     profile.default_terms = str(g('default_terms')).strip()
     profile.default_quotation_terms = str(g('default_quotation_terms')).strip()
-    profile.invoice_pdf_theme = str(g('invoice_pdf_theme', 'classic_gst')).strip()
-    profile.quotation_pdf_theme = str(g('quotation_pdf_theme', 'classic')).strip()
+
+    # Company default PDF templates, each checked against its own document
+    # type. Blank is the "Reset to default" case and stores NULL, which
+    # resolves to the original template.
+    try:
+        profile.invoice_pdf_theme = validate_pdf_theme(
+            'invoice', g('invoice_pdf_theme', profile.invoice_pdf_theme))
+        profile.quotation_pdf_theme = validate_pdf_theme(
+            'quotation', g('quotation_pdf_theme', profile.quotation_pdf_theme))
+    except ValueError as e:
+        return validation_error_response(str(e))
 
     if logo_file and logo_file.filename:
         result, error = _validate_image_upload(logo_file, 'Logo')

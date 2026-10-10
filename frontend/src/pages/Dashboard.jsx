@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import { invoicePdfHref } from '../lib/pdfHref'
 
 const formatINR = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 const formatDate = (s) => (s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
@@ -203,7 +204,7 @@ export default function Dashboard() {
                             <i className="bi bi-eye"></i>
                           </Link>
                           <a
-                            href={`/api/invoices/${inv.id}/pdf`}
+                            href={invoicePdfHref(inv)}
                             className="btn btn-sm btn-inf-outline py-1 px-2 text-danger"
                             title="Download PDF"
                             target="_blank"

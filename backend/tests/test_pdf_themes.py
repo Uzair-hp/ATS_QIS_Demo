@@ -27,25 +27,19 @@ def test_defaults_point_at_the_original_template_files():
 
 
 def test_resolve_without_a_request_uses_the_default():
-    assert pdf_themes.resolve(
-        pdf_themes.INVOICE_THEMES, None, pdf_themes.DEFAULT_INVOICE_THEME
-    ) == 'invoices/pdf_template.html'
-    assert pdf_themes.resolve(
-        pdf_themes.QUOTATION_THEMES, None, pdf_themes.DEFAULT_QUOTATION_THEME
-    ) == 'quotations/pdf_template.html'
+    assert pdf_themes.resolve_path('invoice') == 'invoices/pdf_template.html'
+    assert pdf_themes.resolve_path('quotation') == 'quotations/pdf_template.html'
 
 
 def test_resolve_ignores_an_unknown_key():
     """A bad ?theme= value falls back; it must never raise."""
-    assert pdf_themes.resolve(
-        pdf_themes.INVOICE_THEMES, 'does-not-exist', pdf_themes.DEFAULT_INVOICE_THEME
-    ) == 'invoices/pdf_template.html'
+    assert pdf_themes.resolve_path('invoice', 'does-not-exist') == \
+        'invoices/pdf_template.html'
 
 
 def test_resolve_honours_a_known_key():
-    assert pdf_themes.resolve(
-        pdf_themes.INVOICE_THEMES, 't3_minimal', pdf_themes.DEFAULT_INVOICE_THEME
-    ) == 'invoices/themes/t3_minimal.html'
+    assert pdf_themes.resolve_path('invoice', 't3_minimal') == \
+        'invoices/themes/t3_minimal.html'
 
 
 def test_every_registered_theme_file_exists(ctx):
@@ -64,5 +58,5 @@ def test_themes_json_reports_the_originals_as_default(ctx):
     payload = pdf_themes.themes_json()
     assert payload['default_invoice'] == 'classic_gst'
     assert payload['default_quotation'] == 'classic'
-    assert payload['invoices'][0]['key'] == 'classic_gst'
-    assert payload['quotations'][0]['key'] == 'classic'
+    assert payload['invoices'][0]['items'][0]['key'] == 'classic_gst'
+    assert payload['quotations'][0]['items'][0]['key'] == 'classic'

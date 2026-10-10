@@ -48,6 +48,13 @@ def test_quotation_pdf_is_styled(login, ctx, sample):
 
 
 def test_quotation_pdf_embeds_logo_and_decoration(login, ctx, sample):
+    """Swoosh, footer and watermark, plus the logo.
+
+    Scoped to the default template on purpose: the selectable themes use flat
+    colour blocks instead of the pre-rendered decoration PNGs, so this count
+    describes the company standard, not every template. See test_theme_content
+    .py for the per-template content assertions.
+    """
     assert _images(login.get(f"/api/quotations/{sample['quotation'].id}/pdf")) >= 3
 
 

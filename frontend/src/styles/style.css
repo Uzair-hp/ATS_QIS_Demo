@@ -1230,6 +1230,30 @@ body.sidebar-collapsed .main-content {
     box-shadow: var(--inf-shadow-sm);
 }
 
+/* Shown instead of the image when a preview is missing or fails to load. */
+.theme-preview-missing {
+    font-size: 0.76rem;
+    color: var(--inf-text-muted);
+    background: var(--inf-bg-subtle, #f8fafc);
+    border: 1px dashed var(--inf-border);
+    border-radius: var(--inf-radius-sm);
+    padding: 0.75rem;
+    max-width: 400px;
+}
+
+/* Page flipper, used by the create forms on multi-page templates. */
+.theme-preview-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.theme-preview-page {
+    font-size: 0.74rem;
+    color: var(--inf-text-muted);
+}
+
 .input-group-text {
     background: var(--inf-card-subtle);
     border: 1.5px solid var(--inf-border);

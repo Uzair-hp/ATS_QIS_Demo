@@ -18,7 +18,9 @@ export default defineConfig({
     },
   },
   test: {
+    // 'node' stays the default so the pure lib tests keep running without a
+    // DOM. Component tests opt in with an @vitest-environment jsdom docblock.
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.js'],
+    include: ['src/**/__tests__/**/*.test.js', 'src/**/__tests__/**/*.test.jsx'],
   },
 })
