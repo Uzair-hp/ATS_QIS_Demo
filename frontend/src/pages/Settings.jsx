@@ -169,8 +169,14 @@ export default function Settings() {
   // the raw payload.
   const invoiceGroups = groupThemes(themes, 'invoice')
   const quotationGroups = groupThemes(themes, 'quotation')
-  const invoiceTheme = findTheme(invoiceGroups, themeForm.invoice_pdf_theme)
-  const quotationTheme = findTheme(quotationGroups, themeForm.quotation_pdf_theme)
+  // Fall back to the backend's own default so the preview opens on the company
+  // standard (classic_gst / classic) when no company default has been set,
+  // instead of rendering nothing. The saved value is untouched - this is only
+  // what the preview shows.
+  const invoiceTheme = findTheme(invoiceGroups,
+    themeForm.invoice_pdf_theme || defaultFor(themes, 'invoice'))
+  const quotationTheme = findTheme(quotationGroups,
+    themeForm.quotation_pdf_theme || defaultFor(themes, 'quotation'))
 
   return (
     <Layout
