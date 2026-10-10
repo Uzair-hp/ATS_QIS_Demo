@@ -137,7 +137,12 @@ body { font-family: Helvetica, Arial, sans-serif; color:#1e293b; font-size:9.5pt
         <div style="font-size:8.6pt; line-height:1.35;">
             <span class="lbl">{{ profile.name|upper }}</span><br>
             {% if profile.address %}{{ m.nl(profile.address) }}{% endif %}
-            {% if profile.gst_number %}<span class="lbl">GSTIN :</span> {{ profile.gst_number }}{% endif %}
+            {% if profile.gst_number %}<span class="lbl">GSTIN :</span> {{ profile.gst_number }}<br>{% endif %}
+            {% if profile.msme_number %}<span class="lbl">MSME :</span> {{ profile.msme_number }}<br>{% endif %}
+            {% if profile.bank_name %}<span class="lbl">Bank :</span> {{ profile.bank_name }}<br>{% endif %}
+            {% if profile.bank_account %}<span class="lbl">A/C :</span> {{ profile.bank_account }}<br>{% endif %}
+            {% if profile.bank_ifsc %}<span class="lbl">IFSC :</span> {{ profile.bank_ifsc }}<br>{% endif %}
+            {% if profile.bank_branch %}<span class="lbl">Branch :</span> {{ profile.bank_branch }}{% endif %}
         </div>
     </td>
     <td width="50%" valign="top">
