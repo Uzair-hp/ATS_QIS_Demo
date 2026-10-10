@@ -133,16 +133,6 @@ export default function QuotationForm() {
                 <div className="col-md-6"><label className="form-label">Subject</label><input className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Payment Terms</label><input className="form-control" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} /></div>
                 <div className="col-md-12"><label className="form-label">Delivery Address</label><input className="form-control" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} /></div>
-                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
-                <div className="col-md-6">
-                  <ThemePreview
-                    doc="quotations"
-                    theme={selectedTheme}
-                    title="Sample preview"
-                    paged
-                    showEmpty
-                  />
-                </div>
               </div>
             </div></div>
 
@@ -180,9 +170,25 @@ export default function QuotationForm() {
               </datalist>
             </div></div>
 
-            <div className="inf-card"><div className="card-body p-4">
+            <div className="inf-card mb-3"><div className="card-body p-4">
               <h6 className="fw-bold mb-2" style={{ fontSize: '0.9rem' }}><i className="bi bi-card-text me-2"></i>Notes</h6>
               <textarea className="form-control" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div></div>
+
+            <div className="inf-card"><div className="card-body p-4">
+              <h6 className="fw-bold mb-3" style={{ fontSize: '0.9rem' }}><i className="bi bi-file-earmark-pdf me-2"></i>PDF Template</h6>
+              <div className="row g-3">
+                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
+                <div className="col-md-6">
+                  <ThemePreview
+                    doc="quotations"
+                    theme={selectedTheme}
+                    title="Sample preview"
+                    paged
+                    showEmpty
+                  />
+                </div>
+              </div>
             </div></div>
           </div>
 
