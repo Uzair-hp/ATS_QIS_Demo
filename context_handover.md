@@ -84,7 +84,6 @@ D:\Brightlant-Work\ATS-QIS\
 │   │   ├── invoices.py             Invoice CRUD, PDF, UPI QR, CSV, convert
 │   │   ├── quotations.py           Quotation CRUD, PDF, CSV, duplicate, convert
 │   │   ├── settings.py             Company profile + stamp upload validation
-│   │   ├── letterhead.py           Blank letterhead PDF download
 │   │   ├── pdf_assets.py           Cached base64 for logo/swoosh/footer
 │   │   └── validation.py           Shared input validation
 │   ├── templates/                  PDF templates ONLY — no page templates
@@ -92,8 +91,7 @@ D:\Brightlant-Work\ATS-QIS\
 │   │   ├── _pdf_style.html         Shared stylesheet (must be included, not
 │   │   │                           imported — see §7.1)
 │   │   ├── invoices/pdf_template.html
-│   │   ├── quotations/pdf_template.html
-│   │   └── letterhead/pdf_template.html
+│   │   └── quotations/pdf_template.html
 │   ├── tools/
 │   │   └── render_assets.py        Renders the decorative PNGs
 │   ├── static/img/                 logo.png, swoosh.png, footer.png,
@@ -104,7 +102,6 @@ D:\Brightlant-Work\ATS-QIS\
 │   │   ├── test_pdf.py             PDF endpoint smoke tests
 │   │   ├── test_pdf_templates.py   styling, escaping, artwork
 │   │   ├── test_pdf_assets.py      decorative PNGs exist and are valid
-│   │   ├── test_letterhead.py      blank letterhead PDF
 │   │   ├── test_csv_exports.py     export headers and values
 │   │   └── test_settings.py        stamp upload validation
 │   └── instance/ats.db             SQLite database (auto-created)
@@ -322,7 +319,6 @@ Separate from the app theme. Sampled from the FORTIS reference:
 
 ### Phase 6: Correctness, tests and exports ✅
 - Backend PDF templates rebuilt on shared macros; decorative PNG artwork
-- Blank letterhead PDF (`GET /api/letterhead/download`)
 - Invoice print page added; `DocumentPrint.jsx` backs both document types
 - Backend totals now authoritative for the print sheet (no rounding divergence)
 - Discount rows use explicit classes, not `:nth-child`
@@ -360,7 +356,6 @@ Consequences, each of which looks like an arbitrary choice otherwise:
 - The stylesheet lives in `_pdf_style.html` and is `{% include %}`d, never
   imported. `{% import %}` exposes macros but does not render the imported body.
 - The grand-total fill is stated inline via `grand_cell()`, not via a class.
-- Letterhead writing lines are table rows, not divs.
 - Anything that must not vanish is asserted in `tests/test_pdf_templates.py`.
 
 The browser print sheet is unaffected — Chrome renders SVG and gradients.
@@ -381,13 +376,7 @@ block, stamp or signature block; all four are now present.
 carries a "Print / Save as PDF" link. `DocumentPrint.jsx` now backs both routes,
 so the layout has one implementation rather than two.
 
-### 8.3 Blank letterhead PDF ✅ Done
-
-`GET /api/letterhead/download` — `routes/letterhead.py` plus
-`templates/letterhead/pdf_template.html`, sharing the header/footer from 7.1.
-Linked from the sidebar under System.
-
-### 8.4 Manual QA sweep — still open
+### 8.3 Manual QA sweep — still open
 
 The checklist in `work_to_be_done.md` §3.7. The automated tests cover totals,
 PDF validity, CSV headers and stamp validation; visual alignment to FORTIS and

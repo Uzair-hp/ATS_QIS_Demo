@@ -57,48 +57,6 @@
 </div>
 {% endmacro %}
 
-{# ===== LETTERHEAD HEADER ===== #}
-{# Unlike a quotation or invoice, the logo image alone is not enough: a blank
-   letterhead is used for correspondence, where the recipient may need to select
-   and quote the company's details. So the identity block is real text as well
-   as the logo. #}
-{% macro letterhead_header() %}
-<div id="headerContent">
-    {% if swoosh_base64 %}
-    <img class="swoosh" src="data:image/png;base64,{{ swoosh_base64 }}" alt="">
-    {% endif %}
-    <table width="100%" cellspacing="0" cellpadding="0">
-        <tr>
-            <td width="46%" valign="middle" class="logo-cell">
-                <table cellspacing="0" cellpadding="0" class="logo-card">
-                    <tr><td class="logo-card-inner">
-                        {% if logo_base64 %}
-                        <img src="data:image/png;base64,{{ logo_base64 }}" alt="{{ profile.name }}">
-                        {% else %}
-                        <span class="logo-fallback">{{ profile.name }}</span>
-                        {% endif %}
-                    </td></tr>
-                </table>
-            </td>
-            <td width="54%" valign="middle" class="lh-identity">
-                <div class="lh-name">{{ (profile.name or '')|upper }}</div>
-                {% if profile.tagline %}<div class="lh-tagline">{{ profile.tagline }}</div>{% endif %}
-                {% if profile.address %}<div class="lh-line-text">{{ profile.address|replace('\n', ', ') }}</div>{% endif %}
-                {% if profile.email or profile.phone or profile.website %}
-                <div class="lh-line-text">
-                    {% set bits = [profile.email, profile.phone, profile.website]|select|list %}
-                    {{ bits|join('  |  ') }}
-                </div>
-                {% endif %}
-                {% if profile.gst_number %}
-                <div class="lh-line-text"><span class="bank-lbl">GSTIN :</span> {{ profile.gst_number }}</div>
-                {% endif %}
-            </td>
-        </tr>
-    </table>
-</div>
-{% endmacro %}
-
 {# ===== FOOTER ===== #}
 {% macro footer() %}
 <div id="footerContent">

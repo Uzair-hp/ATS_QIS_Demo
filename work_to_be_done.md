@@ -34,7 +34,6 @@ max shutdown delay is not supported for services with a disk
 | **Frontend Print Template** | ✅ Complete | Pixel-perfect FORTIS HOSPITAL alignment |
 | **Frontend Invoice Print** | ✅ Complete | Added 2026-10-08; `DocumentPrint` backs both types |
 | **Backend PDF Templates** | ✅ Redesigned | Rebuilt on shared `_pdf_base.html` macros, FORTIS palette |
-| **Letterhead Feature** | ✅ Complete | `GET /api/letterhead/download` |
 | **CSV Exports** | ✅ Complete | Full column set on all three exports |
 | **Documentation** | ✅ Updated | Password, paths, stack and structure corrected |
 | **Testing** | ⚠️ Automated done | 60 pytest + 53 vitest; visual QA still manual |
@@ -163,18 +162,6 @@ Also fixed while in there: the quotation PDF had **no GST line at all** even tho
 
 ---
 
-### 3.3 Letterhead PDF Feature — ✅ DONE
-
-**Shipped:** `backend/routes/letterhead.py`, `backend/templates/letterhead/pdf_template.html`, blueprint registered at `/api/letterhead`, "Blank Letterhead" link in the sidebar System section, and `backend/tests/test_letterhead.py` (7 tests).
-
-Renders the same swoosh header and footer as the other PDFs with 20 faint ruled writing lines and no client, items or totals. The header carries the company identity block as real text (name, tagline, address, contact, GSTIN) as well as the logo, so a recipient can select and quote the details.
-
-Two engine constraints shaped the implementation:
-- Ruled lines are table rows, not empty `<div>`s — xhtml2pdf collapses a zero-height div, so a div carrying only `border-bottom` renders nothing.
-- `letterhead_header()` is a separate macro from `header()` because the document-title cell is replaced by the identity block.
-
----
-
 ### 3.4 Frontend Invoice Print Page — ✅ DONE
 
 Shipped in commit `c810793`.
@@ -255,7 +242,6 @@ cd frontend && npm test       # 53 tests
 |---|---|---|
 | GST / totals maths | `test_calc_totals.py`, `quotation.test.js` | fractional rupees, zero rate, discount clamping, and parity between the two implementations |
 | Quotation & invoice PDFs | `test_pdf.py`, `test_pdf_templates.py` | valid PDF, content present, paise survive formatting, artwork embedded, styling actually applied, headings not double-escaped |
-| Letterhead PDF | `test_letterhead.py` | artwork, company details, no leaked client data, survives a bare profile |
 | PDF assets | `test_pdf_assets.py` | all PNGs exist, are valid, are full-bleed width |
 | CSV exports | `test_csv_exports.py` | headers and values for all three exports |
 | Stamp upload | `test_settings.py` | magic-byte sniffing, 2 MB cap, rejects non-images |
@@ -287,8 +273,7 @@ The three items this audit classified as "Critical" were not the ones that matte
 | # | Problem | Fix |
 |---|---------|-----|
 | 1 | Backend PDFs didn't match FORTIS design | Rebuilt on shared macros; §3.1 |
-| 2 | No letterhead PDF feature | `GET /api/letterhead/download`; §3.3 |
-| 3 | No invoice print page | `InvoicePrintPage.jsx`; §3.4 |
+| 2 | No invoice print page | `InvoicePrintPage.jsx`; §3.4 |
 
 ### 4.2 Was Medium — now fixed
 
@@ -334,7 +319,6 @@ Items 14 and 18 are the ones I would flag hardest. Both render "successfully" wh
 | Frontend print — invoice | n/a | ✅ built |
 | Backend PDF — invoice | ~30% | ✅ FORTIS palette, all fields |
 | Backend PDF — quotation | ~30% | ✅ FORTIS palette, all fields |
-| Letterhead PDF | n/a | ✅ |
 
 Caveat on the two backend scores: they now match FORTIS on palette, layout and content, but not on typography. xhtml2pdf registers fonts by name and Calibri/Cambria were not reliably available, so those templates use Helvetica/Georgia. The browser sheet is unaffected — Chrome has the real fonts.
 

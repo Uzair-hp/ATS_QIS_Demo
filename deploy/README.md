@@ -140,7 +140,6 @@ Then open `/app/` and log in with `admin` / `ats@2026`.
 | Login → dashboard | Loads |
 | Quotation → Print / Save as PDF | A4 sheet, FORTIS layout |
 | Same quotation → Download PDF | Same figures, server-rendered |
-| Sidebar → Blank Letterhead | One-page PDF |
 
 The print sheet and the PDF are separate pipelines and must show the **same
 figures**. If they disagree, that is a bug — see `context_handover.md` §5.
