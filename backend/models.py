@@ -92,9 +92,11 @@ class CompanyProfile(db.Model):
     default_quotation_terms = db.Column(db.Text, nullable=True,
                                         default='This quotation is valid for 15 days from the date of issue. 50% advance payment is required to commence work.')
     default_due_days = db.Column(db.Integer, default=15)
-    # PDF theme selections
-    invoice_pdf_theme = db.Column(db.String(50), default='classic_gst')
-    quotation_pdf_theme = db.Column(db.String(50), default='classic')
+    # Company-wide default PDF templates. NULL means "use the original
+    # template", which is also what every row written before these columns
+    # existed resolves to.
+    invoice_pdf_theme = db.Column(db.String(50), nullable=True)
+    quotation_pdf_theme = db.Column(db.String(50), nullable=True)
 
     @staticmethod
     def get_profile():
@@ -187,6 +189,9 @@ class Invoice(db.Model):
     voucher_number = db.Column(db.String(50), nullable=True)
     gst_percent = db.Column(db.Float, default=0.0)
     gst_amount = db.Column(db.Float, default=0.0)
+    # Chosen PDF template. NULL means "use the company default"; the resolution
+    # order lives in pdf_themes.resolve_path, not here.
+    pdf_theme = db.Column(db.String(50), nullable=True)
 
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 
@@ -247,6 +252,10 @@ class Quotation(db.Model):
     payment_terms = db.Column(db.String(100), nullable=True)  # e.g., "100% Advance"
     gst_percent = db.Column(db.Float, default=0.0)
     gst_amount = db.Column(db.Float, default=0.0)
+    # Chosen PDF template. NULL means "use the company default". Deliberately
+    # NOT copied when a quotation is converted to an invoice - the two document
+    # types have separate template sets, so the key would be invalid.
+    pdf_theme = db.Column(db.String(50), nullable=True)
 
     items = db.relationship('QuotationItem', backref='quotation', lazy=True, cascade='all, delete-orphan')
     client = db.relationship('Client', backref=db.backref('quotations', lazy=True))

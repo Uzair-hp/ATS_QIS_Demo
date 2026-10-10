@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useReactToPrint } from 'react-to-print'
 import api from '../api/client'
 import DocumentPrint from '../components/DocumentPrint'
+import PrintThemePicker from '../components/PrintThemePicker'
 import { normaliseQuotation } from '../lib/quotation'
 import { mapInvoiceForPrint } from '../lib/invoiceMapper'
 // Imported here (not in main.jsx) so the sheet's Calibri/Cambria face and
@@ -19,6 +20,13 @@ export default function InvoicePrintPage() {
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  // A one-time ?theme= choice for the server-rendered PDF. Deliberately not
+  // saved: this is a preview affordance on the print page, not an edit.
+  const [oneTimeTheme, setOneTimeTheme] = useState('')
+  // Read from the API response, not from `invoice`: the print mapper builds a
+  // sheet-shaped object and carries no pdf_theme, so the toolbar would always
+  // start from the company default.
+  const [savedTheme, setSavedTheme] = useState('')
 
   const handlePrint = useReactToPrint({
     contentRef,
@@ -39,6 +47,7 @@ export default function InvoicePrintPage() {
     Promise.all([api.get(`/invoices/${id}`), api.get('/settings/')])
       .then(([iRes, sRes]) => {
         if (cancelled) return
+        setSavedTheme(iRes.data?.pdf_theme || '')
         setInvoice(normaliseQuotation(mapInvoiceForPrint(iRes.data, sRes.data)))
       })
       .catch((err) => {
@@ -87,6 +96,17 @@ export default function InvoicePrintPage() {
         <Link className="btn btn-inf-outline" to={`/invoices/${id}`}>
           Back
         </Link>
+        <PrintThemePicker
+          docType="invoice"
+          saved={savedTheme}
+          onPick={(key) => setOneTimeTheme(key)}
+        />
+        {oneTimeTheme && (
+          <a className="btn btn-inf-outline" href={`/api/invoices/${id}/pdf?theme=${oneTimeTheme}`}>
+            <i className="bi bi-download me-1" />
+            Download this template
+          </a>
+        )}
       </div>
 
       <div ref={contentRef} style={{ '--qp-watermark': `url(${watermarkUrl})` }}>

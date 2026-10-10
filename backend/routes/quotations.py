@@ -16,10 +16,10 @@ from flask import (
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem, CompanyProfile, now_ist, IST
 from routes.pdf_assets import get_pdf_assets
-from pdf_themes import resolve, QUOTATION_THEMES, DEFAULT_QUOTATION_THEME
+from pdf_themes import resolve_path
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
-    validate_valid_days, parse_item_quantity, parse_item_rate,
+    validate_valid_days, validate_pdf_theme, parse_item_quantity, parse_item_rate,
     validate_item_name, validation_error_response
 )
 
@@ -108,6 +108,7 @@ def _quotation_json(q, detailed=False):
         'payment_terms': q.payment_terms,
         'gst_percent': q.gst_percent,
         'gst_amount': q.gst_amount,
+        'pdf_theme': q.pdf_theme,
         'is_expired': q.is_expired,
     }
     if detailed:
@@ -289,6 +290,12 @@ def create_quotation():
     except ValueError as e:
         return validation_error_response(str(e))
 
+    # Blank means NULL, i.e. "follow the company default".
+    try:
+        pdf_theme = validate_pdf_theme('quotation', data.get('pdf_theme'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
     now = now_ist()
     quotation = Quotation(
         quotation_number=generate_quotation_number(),
@@ -304,6 +311,7 @@ def create_quotation():
         delivery_address=delivery_address,
         payment_terms=payment_terms,
         gst_percent=gst_percent,
+        pdf_theme=pdf_theme,
     )
 
     # Validate and build items
@@ -419,6 +427,13 @@ def edit_quotation(id):
         return validation_error_response(str(e))
     quotation.valid_until = quotation.date_created + timedelta(days=valid_days)
 
+    # pdf_theme is optional: absent means "leave as saved", blank means NULL.
+    if 'pdf_theme' in data:
+        try:
+            quotation.pdf_theme = validate_pdf_theme('quotation', data.get('pdf_theme'))
+        except ValueError as e:
+            return validation_error_response(str(e))
+
     QuotationItem.query.filter_by(quotation_id=quotation.id).delete()
 
     if request.is_json:
@@ -509,6 +524,8 @@ def duplicate_quotation(id):
         payment_terms=original.payment_terms,
         gst_percent=original.gst_percent,
         gst_amount=original.gst_amount,
+        # A revision is the same document, so it keeps the same template.
+        pdf_theme=original.pdf_theme,
     )
 
     for item in original.items:
@@ -562,6 +579,9 @@ def convert_to_invoice(id):
         subject=quotation.subject,
         delivery_address=quotation.delivery_address,
         payment_terms=quotation.payment_terms,
+        # Deliberately NOT copied: invoice and quotation template sets are
+        # disjoint, so a quotation key would be invalid on the invoice.
+        pdf_theme=None,
     )
 
     for item in quotation.items:
@@ -608,7 +628,14 @@ def download_pdf(id):
     quotation = Quotation.query.get_or_404(id)
     profile = CompanyProfile.get_profile()
 
-    template_path = resolve(QUOTATION_THEMES, profile.quotation_pdf_theme, DEFAULT_QUOTATION_THEME)
+    # ?theme= is a one-time override for this download and is never written
+    # back to the row; then the quotation's own choice, then the company default.
+    template_path = resolve_path(
+        'quotation',
+        request.args.get('theme'),
+        quotation.pdf_theme,
+        profile.quotation_pdf_theme,
+    )
 
     html_string = render_template(
         template_path,

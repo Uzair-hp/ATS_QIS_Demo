@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import TemplateSelect from '../components/TemplateSelect'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -26,6 +27,9 @@ export default function InvoiceForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ ...blankItem }])
   const [error, setError] = useState('')
+  // '' means "follow the company default", so a new invoice starts on whatever
+  // Printing Settings says and the stored value stays NULL until one is picked.
+  const [pdfTheme, setPdfTheme] = useState('')
 
   useEffect(() => {
     api.get('/invoices/meta').then((res) => {
@@ -34,6 +38,9 @@ export default function InvoiceForm() {
         setDueDays(res.data.company.default_due_days || 15)
         setGstPercent(res.data.company.default_gst_percent ?? 0)
         setNotes(res.data.company.default_terms || '')
+        // A new document pre-selects the company default, but leaves it
+        // unsaved so that changing the company default later still moves it.
+        setPdfTheme(res.data.company.invoice_pdf_theme || '')
       }
     })
     if (id) {
@@ -50,6 +57,8 @@ export default function InvoiceForm() {
         setGstPercent(inv.gst_percent || 0)
         setAdvanceAmount(inv.advance_amount || 0)
         setNotes(inv.notes || '')
+        // Edit mode pre-selects the template saved on this invoice.
+        setPdfTheme(inv.pdf_theme || '')
         if (inv.date_created && inv.due_date) {
           const d = Math.max(1, Math.round((new Date(inv.due_date) - new Date(inv.date_created)) / 86400000))
           setDueDays(d)
@@ -89,7 +98,7 @@ export default function InvoiceForm() {
       client_id: clientId, due_days: dueDays, payment_mode: paymentMode, subject,
       voucher_number: voucherNumber, payment_terms: paymentTerms, delivery_address: deliveryAddress,
       discount, discount_type: discountType, gst_percent: gstPercent, advance_amount: advanceAmount, notes,
-      items,
+      items, pdf_theme: pdfTheme,
     }
     try {
       let res
@@ -133,6 +142,7 @@ export default function InvoiceForm() {
                 <div className="col-md-6"><label className="form-label">Voucher Number</label><input className="form-control" value={voucherNumber} onChange={(e) => setVoucherNumber(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Payment Terms</label><input className="form-control" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Delivery Address</label><input className="form-control" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} /></div>
+                <div className="col-md-6"><TemplateSelect docType="invoice" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} /></div>
               </div>
             </div></div>
 

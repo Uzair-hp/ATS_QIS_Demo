@@ -16,10 +16,11 @@ from flask import (
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, CompanyProfile, now_ist, IST
 from routes.pdf_assets import get_pdf_assets
-from pdf_themes import resolve, INVOICE_THEMES, DEFAULT_INVOICE_THEME
+from pdf_themes import resolve_path
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
-    validate_due_days, validate_advance_amount, parse_item_quantity,
+    validate_due_days, validate_advance_amount, validate_pdf_theme,
+    parse_item_quantity,
     parse_item_rate, validate_item_name, validation_error_response
 )
 
@@ -139,6 +140,7 @@ def _invoice_json(inv, detailed=False):
         'voucher_number': inv.voucher_number,
         'gst_percent': inv.gst_percent,
         'gst_amount': inv.gst_amount,
+        'pdf_theme': inv.pdf_theme,
         'is_overdue': inv.is_overdue,
     }
     if detailed:
@@ -334,6 +336,12 @@ def create_invoice():
     except ValueError as e:
         return validation_error_response(str(e))
 
+    # Blank means NULL, i.e. "follow the company default".
+    try:
+        pdf_theme = validate_pdf_theme('invoice', data.get('pdf_theme'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+
     now = now_ist()
     invoice = Invoice(
         invoice_number=generate_invoice_number(),
@@ -350,6 +358,7 @@ def create_invoice():
         payment_terms=payment_terms,
         voucher_number=voucher_number,
         gst_percent=gst_percent,
+        pdf_theme=pdf_theme,
     )
 
     # Validate and build items
@@ -484,6 +493,13 @@ def edit_invoice(id):
         return validation_error_response(str(e))
     invoice.due_date = invoice.date_created + timedelta(days=due_days)
 
+    # pdf_theme is optional: absent means "leave as saved", blank means NULL.
+    if 'pdf_theme' in data:
+        try:
+            invoice.pdf_theme = validate_pdf_theme('invoice', data.get('pdf_theme'))
+        except ValueError as e:
+            return validation_error_response(str(e))
+
     # Validate advance_amount
     try:
         advance_amount = validate_advance_amount(data.get('advance_amount'))
@@ -594,7 +610,14 @@ def download_pdf(id):
     profile = CompanyProfile.get_profile()
     qr_b64 = generate_upi_qr_base64(invoice.balance_due, invoice.invoice_number)
 
-    template_path = resolve(INVOICE_THEMES, profile.invoice_pdf_theme, DEFAULT_INVOICE_THEME)
+    # ?theme= is a one-time override for this download and is never written
+    # back to the row; then the invoice's own choice, then the company default.
+    template_path = resolve_path(
+        'invoice',
+        request.args.get('theme'),
+        invoice.pdf_theme,
+        profile.invoice_pdf_theme,
+    )
 
     html_string = render_template(
         template_path,

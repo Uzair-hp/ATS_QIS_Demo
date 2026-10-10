@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import { quotationPdfHref } from '../lib/pdfHref'
 import { useToast } from '../context/ToastContext'
 
 const formatINR = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -300,7 +301,7 @@ export default function QuotationView() {
             </div>
             <div className="card-body p-3 d-flex flex-column gap-2">
               <a
-                href={`/api/quotations/${q.id}/pdf`}
+                href={quotationPdfHref(q)}
                 className="btn btn-inf w-100"
                 target="_blank"
                 rel="noreferrer"

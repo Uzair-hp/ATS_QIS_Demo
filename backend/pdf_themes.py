@@ -9,6 +9,27 @@ contract, so swapping a theme never changes what data is available:
   quotation   → quotation, logo_base64, profile        (no QR — nothing to pay yet)
 
 Add a new theme by dropping a file in the themes folder and listing it here.
+
+Two layers, deliberately
+------------------------
+INVOICE_THEMES / QUOTATION_THEMES are the full catalogue — everything that can
+be rendered, including templates kept only as reference (t1, t6-t11).
+
+USER_THEMES is the smaller allowlist of what the UI is allowed to offer. Keeping
+them separate means a template can stay in the repo and be rendered by hand
+without appearing in a user's dropdown, and adding a template file by itself
+never silently exposes it.
+
+Resolution order for a download (first valid wins):
+
+  1. ?theme=<key>       one-time override from the URL, never persisted
+  2. document.pdf_theme  the template saved on that invoice/quotation
+  3. profile.*_pdf_theme the company default from Printing Settings
+  4. DEFAULT_*_THEME     the original template
+
+A key that is unknown, blank, or belongs to the other document type is skipped
+at every level and the next one is used. This means the original template is
+always reachable, whatever is in the database.
 """
 
 # key → (template path, human label, description)
@@ -108,19 +129,101 @@ QUOTATION_THEMES = {
 DEFAULT_INVOICE_THEME = 'classic_gst'
 DEFAULT_QUOTATION_THEME = 'classic'
 
+REGISTRIES = {
+    'invoice': INVOICE_THEMES,
+    'quotation': QUOTATION_THEMES,
+}
 
-def resolve(registry, requested, fallback):
-    """Return the template path for `requested`, or the fallback if unknown."""
-    if requested and requested in registry:
-        return registry[requested][0]
-    return registry[fallback][0]
+DEFAULTS = {
+    'invoice': DEFAULT_INVOICE_THEME,
+    'quotation': DEFAULT_QUOTATION_THEME,
+}
+
+# doc_type → [(key, name, category), ...] in display order. The default is first
+# in both lists and is labelled as the company standard, so it is the value a
+# fresh selector shows before anything is chosen.
+USER_THEMES = {
+    'invoice': [
+        ('classic_gst', 'Original', 'Default'),
+        ('t2_letterhead', 'Letterhead', 'Professional'),
+        ('t4_corporate_slate', 'Corporate Slate', 'Professional'),
+        ('t3_minimal', 'Minimal', 'Modern'),
+        ('t5_compact_dense', 'Compact Dense', 'Compact'),
+    ],
+    'quotation': [
+        ('classic', 'Original', 'Default'),
+        ('q1_classic', 'Classic', 'Professional'),
+        ('q2_proposal', 'Proposal', 'Specialised'),
+        ('q3_minimal', 'Minimal', 'Modern'),
+        ('q4_compact', 'Compact', 'Compact'),
+    ],
+}
+
+def default_theme(doc_type):
+    return DEFAULTS[doc_type]
+
+
+def allowed_keys(doc_type):
+    """The keys the UI may offer for this document type, in display order."""
+    return [key for key, _label, _category in USER_THEMES[doc_type]]
+
+
+def is_allowed(doc_type, key):
+    """True only for a key on this document type's allowlist."""
+    return bool(key) and key in allowed_keys(doc_type)
+
+
+def clean_key(doc_type, key):
+    """Return a valid allowlisted key, or None.
+
+    A blank value, an unknown key, and a key belonging to the other document
+    type all collapse to None so the caller falls through to the next level.
+    """
+    if not key:
+        return None
+    key = str(key).strip()
+    return key if is_allowed(doc_type, key) else None
+
+
+def resolve_key(doc_type, *candidates):
+    """First valid candidate for `doc_type`, else the original default."""
+    for candidate in candidates:
+        key = clean_key(doc_type, candidate)
+        if key:
+            return key
+    return DEFAULTS[doc_type]
+
+
+def resolve_path(doc_type, *candidates):
+    """Template path for the winning key."""
+    return REGISTRIES[doc_type][resolve_key(doc_type, *candidates)][0]
 
 
 def themes_json():
-    """Serialisable theme list for the frontend settings page."""
+    """The allowlisted themes for the frontend, grouped by category.
+
+    Only allowlisted keys appear: t1 and t6-t11 stay in the repo and remain
+    renderable by hand, but they are never offered or accepted from the API.
+    """
+    def groups(doc_type):
+        out = []
+        for key, name, category in USER_THEMES[doc_type]:
+            entry = {
+                'key': key,
+                'label': (DEFAULTS[doc_type] == key) and 'Default (Company Standard)'
+                         or name,
+                'description': REGISTRIES[doc_type][key][2],
+                'category': category,
+            }
+            if out and out[-1]['category'] == category:
+                out[-1]['items'].append(entry)
+            else:
+                out.append({'category': category, 'items': [entry]})
+        return out
+
     return {
-        'invoices': [{'key': k, 'label': v[1], 'description': v[2]} for k, v in INVOICE_THEMES.items()],
-        'quotations': [{'key': k, 'label': v[1], 'description': v[2]} for k, v in QUOTATION_THEMES.items()],
+        'invoices': groups('invoice'),
+        'quotations': groups('quotation'),
         'default_invoice': DEFAULT_INVOICE_THEME,
         'default_quotation': DEFAULT_QUOTATION_THEME,
     }

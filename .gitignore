@@ -94,6 +94,10 @@ logs/
 *.sqlite3
 *.db-journal
 
+# Scratch output from backend/tools/render_themes.py - rendered PDFs and PNGs
+# kept only so the templates can be inspected locally (AGENTS.md section 6).
+backend/_qa/
+
 # Static files that can be generated
 static/fonts/
 static/vendor/

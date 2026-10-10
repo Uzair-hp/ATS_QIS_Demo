@@ -118,6 +118,32 @@ def validate_advance_amount(advance_amount):
     return parse_finite_float(advance_amount, 'advance_amount', default=0.0)
 
 
+def validate_pdf_theme(doc_type, value):
+    """Validate a requested PDF template key for `doc_type`.
+
+    Rejected with a clear message rather than silently ignored, so a bad key in
+    a create/update request is visible instead of quietly storing NULL. Blank
+    is legitimate and means NULL ("use the company default").
+
+    Cross-type keys (a quotation key on an invoice) fail here too, which is what
+    keeps the two template sets from bleeding into each other.
+    """
+    from pdf_themes import allowed_keys, default_theme
+
+    if value is None:
+        return None
+    key = str(value).strip()
+    if not key:
+        return None
+    if key not in allowed_keys(doc_type):
+        raise ValueError(
+            f'"{key}" is not an available {doc_type} PDF template. '
+            f'Choose one of: {", ".join(allowed_keys(doc_type))} '
+            f'(or leave blank for {default_theme(doc_type)}).'
+        )
+    return key
+
+
 def validate_item_name(name):
     """Validate item name is not empty after stripping."""
     if name is None:

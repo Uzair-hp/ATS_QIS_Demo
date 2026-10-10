@@ -4,6 +4,7 @@ import api from '../api/client'
 import Layout from '../components/Layout'
 import ChangePasswordForm from '../components/ChangePasswordForm'
 import { useToast } from '../context/ToastContext'
+import { groupThemes, defaultFor, describeTheme, findTheme } from '../lib/pdfThemes'
 
 const contactFields = [
   ['tagline', 'Tagline'],
@@ -16,6 +17,43 @@ const taxFields = [
   ['gst_number', 'GST Number'],
   ['msme_number', 'MSME Number'],
 ]
+
+// Company-wide default picker. '' is the "Reset to default" state, which the
+// backend stores as NULL and resolves to the original template.
+function CompanyDefaultSelect({ docType, id, label, value, onChange, themes }) {
+  const fallback = defaultFor(themes, docType)
+  const groups = groupThemes(themes, docType)
+  const selected = value || ''
+
+  return (
+    <div>
+      <label className="form-label" htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        className="form-select"
+        value={selected}
+        onChange={(e) => onChange(e.target.value)}
+        aria-describedby={`${id}-hint`}
+      >
+        <option value="">Reset to default{fallback ? ` (${fallback})` : ''}</option>
+        {groups.map((group) => (
+          <optgroup key={group.category} label={group.category}>
+            {group.items.map((item) => (
+              <option key={item.key} value={item.key} title={item.description}>
+                {item.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <div className="form-text" id={`${id}-hint`}>
+        {selected
+          ? describeTheme(groups, selected)
+          : 'No company default set. New documents use the original template.'}
+      </div>
+    </div>
+  )
+}
 
 function CompanyField({ name, id, label, value, onChange }) {
   return (
@@ -66,7 +104,8 @@ export default function Settings() {
   const [logoFile, setLogoFile] = useState(null)
   const [removeLogo, setRemoveLogo] = useState(false)
   const [themes, setThemes] = useState({ invoices: [], quotations: [] })
-  const [themeForm, setThemeForm] = useState({ invoice_pdf_theme: 'classic_gst', quotation_pdf_theme: 'classic' })
+  // '' is "no company default set", which the backend stores as NULL.
+  const [themeForm, setThemeForm] = useState({ invoice_pdf_theme: '', quotation_pdf_theme: '' })
   const { push } = useToast()
   const fileRef = useRef()
   const logoRef = useRef()
@@ -75,8 +114,8 @@ export default function Settings() {
     api.get('/settings/').then((res) => {
       setForm(res.data)
       setThemeForm({
-        invoice_pdf_theme: res.data.invoice_pdf_theme || 'classic_gst',
-        quotation_pdf_theme: res.data.quotation_pdf_theme || 'classic',
+        invoice_pdf_theme: res.data.invoice_pdf_theme || '',
+        quotation_pdf_theme: res.data.quotation_pdf_theme || '',
       })
     })
     api.get('/settings/themes').then((res) => setThemes(res.data))
@@ -124,8 +163,13 @@ export default function Settings() {
     } catch (err) { push(err.response?.data?.error || 'Failed.', 'danger') }
   }
 
-  const invoiceTheme = themes.invoices?.find((t) => t.key === themeForm.invoice_pdf_theme)
-  const quotationTheme = themes.quotations?.find((t) => t.key === themeForm.quotation_pdf_theme)
+  // Grouped catalogue, split per document type so the two key sets can never
+  // be confused. The per-side lookups below resolve against these, not against
+  // the raw payload.
+  const invoiceGroups = groupThemes(themes, 'invoice')
+  const quotationGroups = groupThemes(themes, 'quotation')
+  const invoiceTheme = findTheme(invoiceGroups, themeForm.invoice_pdf_theme)
+  const quotationTheme = findTheme(quotationGroups, themeForm.quotation_pdf_theme)
 
   return (
     <Layout
@@ -454,48 +498,54 @@ export default function Settings() {
           )}
 
           {activeTab === 'printing' && (
-            <form onSubmit={saveThemes} className="row g-3" style={{ maxWidth: 720 }}>
+            <div className="row g-3" style={{ maxWidth: 720 }}>
               <div className="col-12">
                 <h6 className="fw-bold mb-3">
                   <i className="bi bi-printer me-2 text-primary"></i>
-                  PDF Template Selection
+                  Printing Settings
                 </h6>
                 <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>
                   Server-generated PDFs use these templates. Browser print (Print / Save as PDF) is unaffected.
                 </p>
               </div>
 
-              <div className="col-md-6 mt-2">
-                <label className="form-label">Invoice Template</label>
-                <select className="form-select" value={themeForm.invoice_pdf_theme} onChange={(e) => setThemeForm({ ...themeForm, invoice_pdf_theme: e.target.value })}>
-                  {themes.invoices?.map((t) => (
-                    <option key={t.key} value={t.key}>{t.label}</option>
-                  ))}
-                </select>
-                {invoiceTheme && (
-                  <div className="form-text mt-1">{invoiceTheme.description}</div>
-                )}
+              <div className="col-12">
+                <CompanyDefaultSelect
+                  docType="invoice"
+                  id="company-default-invoice"
+                  label="Default Invoice Template"
+                  value={themeForm.invoice_pdf_theme}
+                  onChange={(v) => setThemeForm({ ...themeForm, invoice_pdf_theme: v })}
+                  themes={themes}
+                />
               </div>
 
-              <div className="col-md-6 mt-2">
-                <label className="form-label">Quotation Template</label>
-                <select className="form-select" value={themeForm.quotation_pdf_theme} onChange={(e) => setThemeForm({ ...themeForm, quotation_pdf_theme: e.target.value })}>
-                  {themes.quotations?.map((t) => (
-                    <option key={t.key} value={t.key}>{t.label}</option>
-                  ))}
-                </select>
-                {quotationTheme && (
-                  <div className="form-text mt-1">{quotationTheme.description}</div>
-                )}
+              <div className="col-12">
+                <CompanyDefaultSelect
+                  docType="quotation"
+                  id="company-default-quotation"
+                  label="Default Quotation Template"
+                  value={themeForm.quotation_pdf_theme}
+                  onChange={(v) => setThemeForm({ ...themeForm, quotation_pdf_theme: v })}
+                  themes={themes}
+                />
               </div>
 
-              <div className="col-12 mt-2">
-                <button className="btn btn-inf">
+              <div className="col-12">
+                <div className="alert alert-secondary border-0 mb-0" style={{ fontSize: '0.8rem' }}>
+                  <i className="bi bi-info-circle me-1"></i>
+                  This only sets the default for documents that have no template of their own.
+                  Invoices and quotations saved with their own template keep it.
+                </div>
+              </div>
+
+              <div className="col-12">
+                <button className="btn btn-inf" onClick={saveThemes}>
                   <i className="bi bi-check-lg me-1"></i>
                   Save Printing Settings
                 </button>
               </div>
-            </form>
+            </div>
           )}
 
           {activeTab === 'security' && (

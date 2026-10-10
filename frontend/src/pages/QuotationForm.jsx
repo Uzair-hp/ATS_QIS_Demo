@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
+import TemplateSelect from '../components/TemplateSelect'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -24,6 +25,8 @@ export default function QuotationForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ ...blankItem }])
   const [error, setError] = useState('')
+  // '' means "follow the company default"; see InvoiceForm for the reasoning.
+  const [pdfTheme, setPdfTheme] = useState('')
 
   useEffect(() => {
     api.get('/quotations/meta').then((res) => {
@@ -31,6 +34,8 @@ export default function QuotationForm() {
       if (!id) {
         setGstPercent(res.data.company.default_gst_percent ?? 0)
         setNotes(res.data.company.default_quotation_terms || '')
+        // A new quotation pre-selects the company default without saving it.
+        setPdfTheme(res.data.company.quotation_pdf_theme || '')
       }
     })
     if (id) {
@@ -45,6 +50,8 @@ export default function QuotationForm() {
         setDiscountType(q.discount_type)
         setGstPercent(q.gst_percent || 0)
         setNotes(q.notes || '')
+        // Edit mode pre-selects the template saved on this quotation.
+        setPdfTheme(q.pdf_theme || '')
         if (q.date_created && q.valid_until) {
           setValidDays(Math.max(1, Math.round((new Date(q.valid_until) - new Date(q.date_created)) / 86400000)))
         }
@@ -79,6 +86,7 @@ export default function QuotationForm() {
       client_id: clientId, valid_days: validDays, estimated_timeline: estimatedTimeline,
       subject, payment_terms: paymentTerms, delivery_address: deliveryAddress,
       discount, discount_type: discountType, gst_percent: gstPercent, notes, items,
+      pdf_theme: pdfTheme,
     }
     try {
       let res
@@ -117,6 +125,7 @@ export default function QuotationForm() {
                 <div className="col-md-6"><label className="form-label">Subject</label><input className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Payment Terms</label><input className="form-control" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} /></div>
                 <div className="col-md-12"><label className="form-label">Delivery Address</label><input className="form-control" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} /></div>
+                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} /></div>
               </div>
             </div></div>
 

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useReactToPrint } from 'react-to-print'
 import api from '../api/client'
 import DocumentPrint from '../components/DocumentPrint'
+import PrintThemePicker from '../components/PrintThemePicker'
 import { normaliseQuotation } from '../lib/quotation'
 import { mapQuotationForPrint } from '../lib/quotationMapper'
 // Imported here (not in main.jsx) so the sheet's Calibri/Cambria face and
@@ -17,8 +18,15 @@ export default function QuotationPrintPage() {
   const navigate = useNavigate()
   const contentRef = useRef(null)
   const [quotation, setQuotation] = useState(null)
-  const [error, setError] = useState('')
+const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  // One-time ?theme= for the server-rendered PDF; never saved. See the invoice
+  // print page for the same reasoning.
+  const [oneTimeTheme, setOneTimeTheme] = useState('')
+  // Read from the API response, not from `quotation`: the print mapper builds a
+  // sheet-shaped object and carries no pdf_theme, so the toolbar would always
+  // start from the company default.
+  const [savedTheme, setSavedTheme] = useState('')
 
   const handlePrint = useReactToPrint({
     contentRef,
@@ -39,6 +47,7 @@ export default function QuotationPrintPage() {
     Promise.all([api.get(`/quotations/${id}`), api.get('/settings/')])
       .then(([qRes, sRes]) => {
         if (cancelled) return
+        setSavedTheme(qRes.data?.pdf_theme || '')
         setQuotation(normaliseQuotation(mapQuotationForPrint(qRes.data, sRes.data)))
       })
       .catch((err) => {
@@ -87,6 +96,17 @@ export default function QuotationPrintPage() {
         <Link className="btn btn-inf-outline" to={`/quotations/${id}`}>
           Back
         </Link>
+        <PrintThemePicker
+          docType="quotation"
+          saved={savedTheme}
+          onPick={(key) => setOneTimeTheme(key)}
+        />
+        {oneTimeTheme && (
+          <a className="btn btn-inf-outline" href={`/api/quotations/${id}/pdf?theme=${oneTimeTheme}`}>
+            <i className="bi bi-download me-1" />
+            Download this template
+          </a>
+        )}
       </div>
 
       <div ref={contentRef} style={{ '--qp-watermark': `url(${watermarkUrl})` }}>

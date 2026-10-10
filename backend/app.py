@@ -277,6 +277,12 @@ def create_app():
             "ALTER TABLE users ADD COLUMN phone VARCHAR(30)",
             "ALTER TABLE users ADD COLUMN avatar_image TEXT",
             "ALTER TABLE users ADD COLUMN avatar_mime VARCHAR(30)",
+            # No DEFAULT: NULL means "use the original template", which is the
+            # same outcome, and leaves every existing row untouched.
+            "ALTER TABLE company_profile ADD COLUMN invoice_pdf_theme VARCHAR(50)",
+            "ALTER TABLE company_profile ADD COLUMN quotation_pdf_theme VARCHAR(50)",
+            "ALTER TABLE invoices ADD COLUMN pdf_theme VARCHAR(50)",
+            "ALTER TABLE quotations ADD COLUMN pdf_theme VARCHAR(50)",
         ]
         for col in migrations:
             try:
