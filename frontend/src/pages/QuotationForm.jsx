@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
 import TemplateSelect from '../components/TemplateSelect'
+import ThemePreview from '../components/ThemePreview'
+import { groupThemes, defaultFor, findTheme } from '../lib/pdfThemes'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -27,6 +29,12 @@ export default function QuotationForm() {
   const [error, setError] = useState('')
   // '' means "follow the company default"; see InvoiceForm for the reasoning.
   const [pdfTheme, setPdfTheme] = useState('')
+  // The catalogue TemplateSelect already fetched, reused to show the preview of
+  // whatever is selected without a second request.
+  const [themes, setThemes] = useState(null)
+  const selectedTheme = useMemo(
+    () => findTheme(groupThemes(themes, 'quotation'), pdfTheme || defaultFor(themes, 'quotation')),
+    [themes, pdfTheme])
 
   useEffect(() => {
     api.get('/quotations/meta').then((res) => {
@@ -125,7 +133,16 @@ export default function QuotationForm() {
                 <div className="col-md-6"><label className="form-label">Subject</label><input className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Payment Terms</label><input className="form-control" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} /></div>
                 <div className="col-md-12"><label className="form-label">Delivery Address</label><input className="form-control" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} /></div>
-                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} /></div>
+                <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
+                <div className="col-md-6">
+                  <ThemePreview
+                    doc="quotations"
+                    theme={selectedTheme}
+                    title="Sample preview"
+                    paged
+                    showEmpty
+                  />
+                </div>
               </div>
             </div></div>
 

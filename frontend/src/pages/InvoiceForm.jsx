@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
 import TemplateSelect from '../components/TemplateSelect'
+import ThemePreview from '../components/ThemePreview'
+import { groupThemes, defaultFor, findTheme } from '../lib/pdfThemes'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -30,6 +32,12 @@ export default function InvoiceForm() {
   // '' means "follow the company default", so a new invoice starts on whatever
   // Printing Settings says and the stored value stays NULL until one is picked.
   const [pdfTheme, setPdfTheme] = useState('')
+  // The catalogue TemplateSelect already fetched, reused to show the preview of
+  // whatever is selected without a second request.
+  const [themes, setThemes] = useState(null)
+  const selectedTheme = useMemo(
+    () => findTheme(groupThemes(themes, 'invoice'), pdfTheme || defaultFor(themes, 'invoice')),
+    [themes, pdfTheme])
 
   useEffect(() => {
     api.get('/invoices/meta').then((res) => {
@@ -142,7 +150,16 @@ export default function InvoiceForm() {
                 <div className="col-md-6"><label className="form-label">Voucher Number</label><input className="form-control" value={voucherNumber} onChange={(e) => setVoucherNumber(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Payment Terms</label><input className="form-control" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} /></div>
                 <div className="col-md-6"><label className="form-label">Delivery Address</label><input className="form-control" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} /></div>
-                <div className="col-md-6"><TemplateSelect docType="invoice" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} /></div>
+                <div className="col-md-6"><TemplateSelect docType="invoice" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
+                <div className="col-md-6">
+                  <ThemePreview
+                    doc="invoices"
+                    theme={selectedTheme}
+                    title="Sample preview"
+                    paged
+                    showEmpty
+                  />
+                </div>
               </div>
             </div></div>
 

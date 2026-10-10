@@ -13,7 +13,7 @@ import { groupThemes, defaultFor, describeTheme } from '../lib/pdfThemes'
  * On a failed request the selector still renders with the company standard
  * alone, so a document can still be created or edited.
  */
-export default function TemplateSelect({ docType, value, onChange, id, disabled }) {
+export default function TemplateSelect({ docType, value, onChange, id, disabled, onLoaded }) {
   const [themes, setThemes] = useState(null)
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -21,10 +21,19 @@ export default function TemplateSelect({ docType, value, onChange, id, disabled 
   useEffect(() => {
     let active = true
     api.get('/settings/themes')
-      .then((res) => { if (active) setThemes(res.data) })
+      .then((res) => {
+        if (!active) return
+        setThemes(res.data)
+        // The caller gets the same payload, so a form can show a preview for the
+        // selected key without asking for the catalogue a second time.
+        onLoaded?.(res.data)
+      })
       .catch(() => { if (active) setFailed(true) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
+    // onLoaded is intentionally not a dependency: it is usually an inline
+    // setter, and re-running the fetch when its identity changes would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fallbackKey = defaultFor(themes, docType) || ''
