@@ -39,6 +39,12 @@ from routes.pdf_assets import get_pdf_assets  # noqa: E402
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    '_qa')
 
+# 150 dpi is comfortable to read when checking a template by eye. The tracked
+# images in _preview/ are A4 at 100 dpi (827x1170), so previews are rendered at
+# that scale instead - see rasterise().
+QA_SCALE = 150 / 72
+PREVIEW_SCALE = 100 / 72
+
 ITEMS = [
     ('Automated Boom Barrier Installation', '996521', 2.0, 45000.0),
     ('Sliding Gate Motor 400kg', '841319', 1.0, 68500.0),
@@ -106,19 +112,24 @@ def seed(app):
         return invoice.id, quotation.id
 
 
-def rasterise(base, pdf_bytes):
+def rasterise(base, pdf_bytes, out_dir, scale=QA_SCALE):
     """Write one PNG per page so the result can actually be looked at.
 
     xhtml2pdf output has to be opened and read - a passing render says nothing
     about clipping, overlap or pagination (AGENTS.md section 6). Returns the
     page count.
+
+    QA renders at QA_SCALE because that is for human inspection. Previews go at
+    PREVIEW_SCALE instead, which is what the already-tracked images in
+    _preview/ use - mixing the two would replace every file in the directory
+    with a differently sized one.
     """
     import pypdfium2 as pdfium
 
     doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
     for i, page in enumerate(doc):
-        page.render(scale=150 / 72).to_pil().save(
-            os.path.join(OUT, f'{base}__p{i + 1}.png')
+        page.render(scale=scale).to_pil().save(
+            os.path.join(out_dir, f'{base}__p{i + 1}.png')
         )
     count = len(doc)
     doc.close()
@@ -128,18 +139,37 @@ def rasterise(base, pdf_bytes):
 def _wanted():
     """Theme keys named on the command line, or None for the whole allowlist.
 
-    Parsed by hand so that `python -m tools.render_themes t3_minimal` renders
-    that one theme. Slicing sys.argv[2:] instead would silently discard the
-    first key, which is easy to miss because the run still succeeds.
+    Flags are removed first, including the value that follows --preview-dir,
+    so that naming a flag does not silently filter out every theme and render
+    nothing. Parsed by hand because sys.argv[2:] would instead discard the
+    first key, which also renders the wrong set with no error.
     """
     args = sys.argv[1:]
-    if '--' in args:
-        args = args[args.index('--') + 1:]
+    if '--preview-dir' in args:
+        args.pop(args.index('--preview-dir'))
+        if args and not args[0].startswith('-'):
+            args.pop(0)
+    args = [a for a in args if not a.startswith('-')]
     return args or None
 
 
+def _preview_dir():
+    """The --preview-dir target, or None.
+
+    Previews are written to a directory the caller names rather than straight
+    into backend/_preview/, so a new set can be generated and compared before
+    any tracked file is overwritten.
+    """
+    args = sys.argv[1:]
+    if '--preview-dir' in args:
+        return args[args.index('--preview-dir') + 1]
+    return None
+
+
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    preview = _preview_dir()
+    out = preview or OUT
+    os.makedirs(out, exist_ok=True)
     app = create_app()
     invoice_id, quotation_id = seed(app)
 
@@ -167,11 +197,16 @@ def main():
 
                 pdf = render_pdf(path, **data)
                 base = f'{kind}__{key}'
-                with open(os.path.join(OUT, base + '.pdf'), 'wb') as fh:
-                    fh.write(pdf)
-                pages = rasterise(base, pdf)
-                print(f'{kind:10} {key:22} {len(pdf):>7} bytes  '
-                      f'{pages} page(s)  {label}')
+                if not preview:
+                    with open(os.path.join(out, base + '.pdf'), 'wb') as fh:
+                        fh.write(pdf)
+                pages = rasterise(base, pdf, out,
+                                  PREVIEW_SCALE if preview else QA_SCALE)
+                where = 'preview' if preview else 'qa'
+                print(f'{where:8} {kind:10} {key:22} {pages} page(s)  {label}')
+
+    if preview:
+        print(f'\nwrote preview images to {preview}')
 
 
 if __name__ == '__main__':
