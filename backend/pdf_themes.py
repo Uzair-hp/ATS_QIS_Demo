@@ -11,6 +11,9 @@ contract, so swapping a theme never changes what data is available:
 Add a new theme by dropping a file in the themes folder and listing it here.
 """
 
+import os
+import re
+
 # key → (template path, human label, description)
 INVOICE_THEMES = {
     'classic_gst': (
@@ -109,6 +112,48 @@ DEFAULT_INVOICE_THEME = 'classic_gst'
 DEFAULT_QUOTATION_THEME = 'classic'
 
 
+# ── Settings "demo" previews ─────────────────────────────────────────
+# Each theme ships pre-rendered page images in _preview/, named
+# <doc>__<key>__p<N>.png and generated once from sample data. The
+# settings page shows them so a template can be judged by eye without
+# rendering a PDF on every selection change.
+_PREVIEW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_preview')
+
+# The API speaks in plural document types; the preview filenames are singular.
+_PREVIEW_PREFIX = {'invoices': 'invoice', 'quotations': 'quotation'}
+
+# Theme keys are the only caller-supplied part of a preview path, so they
+# are constrained before being joined onto the filesystem.
+_SAFE_THEME_KEY = re.compile(r'^[a-z0-9_]+$')
+
+
+def preview_path(doc, key, page):
+    """Absolute path to a theme's preview PNG for `page`, or None."""
+    prefix = _PREVIEW_PREFIX.get(doc)
+    if not prefix or not _SAFE_THEME_KEY.match(key or ''):
+        return None
+    path = os.path.join(_PREVIEW_DIR, f'{prefix}__{key}__p{page}.png')
+    return path if os.path.isfile(path) else None
+
+
+def preview_pages(doc, key):
+    """Sorted page numbers that have a rendered preview for a theme."""
+    prefix = _PREVIEW_PREFIX.get(doc)
+    if not prefix or not _SAFE_THEME_KEY.match(key or ''):
+        return []
+    pattern = re.compile(rf'^{prefix}__{re.escape(key)}__p(\d+)\.png$')
+    try:
+        names = os.listdir(_PREVIEW_DIR)
+    except OSError:
+        return []
+    pages = []
+    for name in names:
+        m = pattern.match(name)
+        if m:
+            pages.append(int(m.group(1)))
+    return sorted(pages)
+
+
 def resolve(registry, requested, fallback):
     """Return the template path for `requested`, or the fallback if unknown."""
     if requested and requested in registry:
@@ -119,8 +164,24 @@ def resolve(registry, requested, fallback):
 def themes_json():
     """Serialisable theme list for the frontend settings page."""
     return {
-        'invoices': [{'key': k, 'label': v[1], 'description': v[2]} for k, v in INVOICE_THEMES.items()],
-        'quotations': [{'key': k, 'label': v[1], 'description': v[2]} for k, v in QUOTATION_THEMES.items()],
+        'invoices': [
+            {
+                'key': k,
+                'label': v[1],
+                'description': v[2],
+                'preview_pages': preview_pages('invoices', k),
+            }
+            for k, v in INVOICE_THEMES.items()
+        ],
+        'quotations': [
+            {
+                'key': k,
+                'label': v[1],
+                'description': v[2],
+                'preview_pages': preview_pages('quotations', k),
+            }
+            for k, v in QUOTATION_THEMES.items()
+        ],
         'default_invoice': DEFAULT_INVOICE_THEME,
         'default_quotation': DEFAULT_QUOTATION_THEME,
     }

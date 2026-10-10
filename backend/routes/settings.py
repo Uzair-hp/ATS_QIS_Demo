@@ -3,10 +3,10 @@ Company profile / settings (JSON).
 """
 
 import base64
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from models import db, CompanyProfile
-from pdf_themes import themes_json
+from pdf_themes import themes_json, preview_path
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -107,6 +107,20 @@ def company_settings():
 @login_required
 def get_themes():
     return jsonify(themes_json())
+
+
+@settings_bp.route('/themes/preview/<doc>/<key>/<int:page>', methods=['GET'])
+@login_required
+def theme_preview(doc, key, page):
+    """Serve a pre-rendered preview image for a PDF theme.
+
+    The key is validated against a safe pattern inside preview_path, so
+    the URL cannot escape the _preview directory.
+    """
+    path = preview_path(doc, key, page)
+    if not path:
+        return jsonify({'error': 'preview not available'}), 404
+    return send_file(path, mimetype='image/png')
 
 
 @settings_bp.route('/', methods=['POST', 'PUT'])
