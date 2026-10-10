@@ -82,6 +82,32 @@ const tabs = [
   { key: 'security', label: 'Security', icon: 'bi-shield-lock' },
 ]
 
+// Rendered under each template selector in the Printing tab. The
+// backend ships a pre-rendered image per theme page, so picking a
+// template shows what it looks like without generating a PDF here.
+function ThemePreview({ doc, theme }) {
+  const pages = theme?.preview_pages || []
+  if (!pages.length) return null
+  return (
+    <div className="theme-preview mt-3">
+      <div className="theme-preview-head">
+        <i className="bi bi-eye me-1"></i> Preview
+      </div>
+      <div className="theme-preview-stack">
+        {pages.map((p) => (
+          <img
+            key={p}
+            className="theme-preview-img"
+            src={`/api/settings/themes/preview/${doc}/${theme.key}/${p}`}
+            alt={`${theme.label} — page ${p}`}
+            loading="lazy"
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const companySubTabs = [
   { key: 'profile', label: 'Profile', icon: 'bi-person-badge' },
   { key: 'bank', label: 'Bank Details', icon: 'bi-bank' },
@@ -509,7 +535,7 @@ export default function Settings() {
                 </p>
               </div>
 
-              <div className="col-12">
+<div className="col-12">
                 <CompanyDefaultSelect
                   docType="invoice"
                   id="company-default-invoice"
@@ -518,6 +544,7 @@ export default function Settings() {
                   onChange={(v) => setThemeForm({ ...themeForm, invoice_pdf_theme: v })}
                   themes={themes}
                 />
+                <ThemePreview doc="invoices" theme={invoiceTheme} />
               </div>
 
               <div className="col-12">
@@ -529,6 +556,7 @@ export default function Settings() {
                   onChange={(v) => setThemeForm({ ...themeForm, quotation_pdf_theme: v })}
                   themes={themes}
                 />
+                <ThemePreview doc="quotations" theme={quotationTheme} />
               </div>
 
               <div className="col-12">

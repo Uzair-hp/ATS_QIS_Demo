@@ -195,3 +195,51 @@ def test_resolve_path_never_leaves_the_registry(ctx):
     for doc_type in ('invoice', 'quotation'):
         for candidate in (None, '', 'junk', 'classic', 't3_minimal', 'q1_classic'):
             assert (templates / pdf_themes.resolve_path(doc_type, candidate)).is_file()
+
+
+# ── previews ───────────────────────────────────────────────────────────
+
+def test_preview_pages_are_reported_for_allowlisted_keys():
+    """The Settings preview is driven by preview_pages on the allowlist only."""
+    payload = pdf_themes.themes_json()
+    for side in ('invoices', 'quotations'):
+        for group in payload[side]:
+            for item in group['items']:
+                assert 'preview_pages' in item
+                assert isinstance(item['preview_pages'], list)
+
+
+def test_preview_path_refuses_an_unknown_document_type():
+    assert pdf_themes.preview_path('credit_notes', 'classic_gst', 1) is None
+
+
+def test_preview_path_refuses_a_unsafe_key():
+    """The key is joined onto the filesystem, so it is constrained first."""
+    assert pdf_themes.preview_path('invoices', '../../secrets', 1) is None
+    assert pdf_themes.preview_path('invoices', 'classic_gst/../x', 1) is None
+
+
+def test_preview_serves_an_allowlisted_template(login):
+    resp = login.get('/api/settings/themes/preview/invoices/classic_gst/1')
+    assert resp.status_code == 200, resp.get_json()
+    assert resp.data[:8] == b'\x89PNG\r\n\x1a\n'
+
+
+@pytest.mark.parametrize('key', EXCLUDED)
+def test_preview_of_an_excluded_template_is_not_reachable(login, key):
+    """_preview/ holds images for the reference templates too.
+
+    They are deliberately left out of the allowlist, so the endpoint must not
+    serve them just because the filename is known. Without this check a caller
+    could fetch any preview in the directory.
+    """
+    resp = login.get(f'/api/settings/themes/preview/invoices/{key}/1')
+    assert resp.status_code == 404, resp.data[:80]
+
+
+def test_preview_of_a_missing_page_is_404(login):
+    assert login.get('/api/settings/themes/preview/invoices/classic_gst/99').status_code == 404
+
+
+def test_preview_requires_login(client, ctx):
+    assert client.get('/api/settings/themes/preview/invoices/classic_gst/1').status_code in (302, 401)

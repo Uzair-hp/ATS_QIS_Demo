@@ -344,7 +344,12 @@ body.sidebar-collapsed .main-content {
     width: 36px;
     height: 36px;
     border-radius: var(--inf-radius-sm);
-    display: flex;
+    /* The toggle only drives the off-canvas drawer, which exists at
+       ≤991.98px. On desktop the sidebar is always visible, so a
+       visible toggle would just throw the full-screen blur overlay
+       over the page for no reason. Hidden here, re-enabled in the
+       ≤991.98px block below. */
+    display: none;
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
@@ -1196,6 +1201,33 @@ body.sidebar-collapsed .main-content {
 .form-text {
     font-size: 0.76rem;
     color: var(--inf-text-muted);
+}
+
+/* ── THEME PREVIEW (Settings → Printing) ── */
+.theme-preview-head {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--inf-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.theme-preview-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.theme-preview-img {
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border: 1px solid var(--inf-border);
+    border-radius: var(--inf-radius-sm);
+    background: #ffffff;
+    box-shadow: var(--inf-shadow-sm);
 }
 
 .input-group-text {

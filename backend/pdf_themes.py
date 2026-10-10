@@ -32,6 +32,9 @@ at every level and the next one is used. This means the original template is
 always reachable, whatever is in the database.
 """
 
+import os
+import re
+
 # key → (template path, human label, description)
 INVOICE_THEMES = {
     'classic_gst': (
@@ -199,13 +202,59 @@ def resolve_path(doc_type, *candidates):
     return REGISTRIES[doc_type][resolve_key(doc_type, *candidates)][0]
 
 
+# ── Settings previews ──────────────────────────────────────────────────
+# Each theme ships pre-rendered page images in _preview/, named
+# <doc>__<key>__p<N>.png and generated once from sample data. The
+# settings page shows them so a template can be judged by eye without
+# rendering a PDF on every selection change.
+_PREVIEW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_preview')
+
+# The API speaks in plural document types; the preview filenames are singular.
+_PREVIEW_PREFIX = {'invoices': 'invoice', 'quotations': 'quotation'}
+
+# Theme keys are the only caller-supplied part of a preview path, so they
+# are constrained before being joined onto the filesystem.
+_SAFE_THEME_KEY = re.compile(r'^[a-z0-9_]+$')
+
+
+def preview_path(doc, key, page):
+    """Absolute path to a theme's preview PNG for `page`, or None."""
+    prefix = _PREVIEW_PREFIX.get(doc)
+    if not prefix or not _SAFE_THEME_KEY.match(key or ''):
+        return None
+    path = os.path.join(_PREVIEW_DIR, f'{prefix}__{key}__p{page}.png')
+    return path if os.path.isfile(path) else None
+
+
+def preview_pages(doc, key):
+    """Sorted page numbers that have a rendered preview for a theme."""
+    prefix = _PREVIEW_PREFIX.get(doc)
+    if not prefix or not _SAFE_THEME_KEY.match(key or ''):
+        return []
+    pattern = re.compile(rf'^{prefix}__{re.escape(key)}__p(\d+)\.png$')
+    try:
+        names = os.listdir(_PREVIEW_DIR)
+    except OSError:
+        return []
+    pages = []
+    for name in names:
+        m = pattern.match(name)
+        if m:
+            pages.append(int(m.group(1)))
+    return sorted(pages)
+
+
 def themes_json():
     """The allowlisted themes for the frontend, grouped by category.
 
     Only allowlisted keys appear: t1 and t6-t11 stay in the repo and remain
     renderable by hand, but they are never offered or accepted from the API.
+    preview_pages is read per allowlisted key here, which is what keeps the
+    Settings preview from ever offering an excluded template.
     """
     def groups(doc_type):
+        # preview_pages() takes the plural side name the API speaks in.
+        side = 'invoices' if doc_type == 'invoice' else 'quotations'
         out = []
         for key, name, category in USER_THEMES[doc_type]:
             entry = {
@@ -214,6 +263,7 @@ def themes_json():
                          or name,
                 'description': REGISTRIES[doc_type][key][2],
                 'category': category,
+                'preview_pages': preview_pages(side, key),
             }
             if out and out[-1]['category'] == category:
                 out[-1]['items'].append(entry)
@@ -222,7 +272,7 @@ def themes_json():
         return out
 
     return {
-        'invoices': groups('invoice'),
+'invoices': groups('invoice'),
         'quotations': groups('quotation'),
         'default_invoice': DEFAULT_INVOICE_THEME,
         'default_quotation': DEFAULT_QUOTATION_THEME,
