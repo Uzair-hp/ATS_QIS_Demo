@@ -1,174 +1,156 @@
-# PDF Theme System
+# Document Template System
 
-Invoice aur quotation PDFs ke liye 16 switchable layouts. **Data contract har
-theme me identical hai** — sirf presentation badalti hai. Koi bhi theme badalne
-se data nahi badalta.
+Invoices and quotations have **five switchable layouts each**. Every layout is a
+React component. There is exactly one renderer, so the preview, the print view
+and the saved PDF can never disagree.
+
+## The one rule
+
+> A template key resolves to a component in **one** file. Nothing else decides
+> what a document looks like.
+
+```
+pdf_theme (the key)  →  frontend/src/templates/registry.js  →  a layout component
+        ↑                                                            ↓
+        │                                                      .doc-sheet  ← what prints
+   saved on the row                                    rendered into preview + print view
+```
+
+If you are adding, renaming or removing a layout, you touch `registry.js` and
+`layouts.jsx`. Nowhere else.
 
 ## Data contract (fixed — do not change)
 
-Har invoice theme ko ye milta hai:
+Both document types are built into **one shape** by
+`frontend/src/lib/docData.js` (`buildDocData(docType, doc, settings)`), so every
+template reads the same fields for an invoice and a quotation.
 
-| Variable | Contents |
+| Field | Notes |
 |---|---|
-| `invoice` | number, subject, date, due_date, voucher, payment_terms, delivery_address, ref_quotation_number, sub_total, discount(+type), gst_percent, gst_amount, total_amount, advance_amount, `balance_due`, notes, status |
-| `invoice.client` | name, company_name, email, phone, address, gst_number |
-| `invoice.items[]` | service_name, description, hsn_code, quantity, rate, amount |
-| `profile` | company details, GSTIN, MSME, bank, UPI, `stamp_image` |
-| `logo_base64` | logo as data URI |
-| `qr_base64` | UPI payment QR (balance due > 0 only) |
+| `number`, `title`, `subject` | `title` is the uppercased subject, or the document name |
+| `date`, `dueDate`, `validUntil` | invoices use due date, quotations use valid-until |
+| `voucherNo`, `paymentTerm`, `delivery`, `timeline`, `refQuotation`, `status` | |
+| `docLabel`, `grandLabel`, `notesHeading`, `signatureCaption` | per-document wording, from `labelsFor()` |
+| `client` | `name` (trading), `kindAttn`, `address`, `phone`, `email`, `gstNo` |
+| `items[]` | `srNo`, `description` (name + newline + description), `hsn`, `qty`, `rate`, `amount`, `amountFormatted` |
+| `totals` | `subtotal`, `discount`, `net`, `gst`, `grandTotal`, `advance`, `balance` + a `*Formatted` of each |
+| `company` | name, tagline, logo, gstin, msme, bank, branch, accountNo, ifsc, upiId, email, website, phone, address, stamp |
+| `notes`, `qrBase64`, `amountWords` | |
 
-Quotation themes ko wahi milta hai, bas `quotation` ke naam se — aur
-**`qr_base64` nahi** (quotation me payment maanga nahi jaata). Quotation-only
-fields: `valid_until`, `estimated_timeline`, 6-way `status`.
+**`settings` (from `GET /api/settings/`) is the source for the company block**,
+not the document's inline `profile` key — that is what carries the bank details,
+MSME number and stamp.
 
-## Invoice themes
+Blank fields are never rendered. A company with no IFSC gets no IFSC row, not a
+row with an empty label.
 
-| Key | Look | Use when |
+## Layouts
+
+Structure lives in `frontend/src/templates/layouts.jsx` as five archetypes;
+colour lives in `print.css`, keyed off the sheet's `data-template` class. A
+template is therefore **(archetype, palette)**.
+
+| Archetype | Structure |
+|---|---|
+| `classic` | boxed panels, ATS blue band header, subject bar |
+| `hero` | subject-led hero panel above two cards |
+| `minimal` | no boxes, hairline rules, grand total ruled not filled |
+| `compact` | small type, tight leading, inline meta |
+| `letterhead` | full-bleed blue band with the logo on it |
+
+## Keys
+
+The keys are the ones the Jinja templates used, kept deliberately so nothing
+needs migrating. They are already in `invoices.pdf_theme`,
+`quotations.pdf_theme`, `CompanyProfile.invoice_pdf_theme` and
+`CompanyProfile.quotation_pdf_theme`.
+
+| Invoice key | Archetype | |
 |---|---|---|
-| `classic_gst` | Original dense bordered layout | **Default.** Backwards compatible |
-| `t1_classic_gst` | Refined classic + amount-in-words + notes | CA / filing safety |
-| `t2_letterhead` | Blue band header, subject banner, blue footer | Matches the Fortis Hospital reference |
-| `t3_minimal` | Hairlines, no boxes, heavy whitespace | Premium / white-glove service work |
-| `t4_corporate_slate` | Navy + status badges, card panels | Enterprise B2B clients |
-| `t5_compact_dense` | Tight leading, 40+ items/page | BOM-heavy site work |
-| `t6_amber_accent` | Warm amber/cream | Small & retail clients |
-| `t7_ledger` | Monospace accounting register | Physical bill-book feel |
-| `t8_mono_bw` | Pure black & white | Fax / photocopy / thermal |
-| `t9_legal_compliance` | CGST/SGST split, UOM, declaration | Auditors, statutory filings |
-| `t10_modern_saas` | Teal hero, chips, cards | Invoices sent digitally |
-| `t11_retail_pos` | Huge total at top | Counter / site handover |
+| `classic_gst` | classic | **Company standard** |
+| `t2_letterhead` | letterhead | |
+| `t4_corporate_slate` | hero | |
+| `t3_minimal` | minimal | |
+| `t5_compact_dense` | compact | |
 
-## Quotation themes
+| Quotation key | Archetype | |
+|---|---|---|
+| `classic` | classic | **Company standard** |
+| `q1_classic` | classic | |
+| `q2_proposal` | hero | |
+| `q3_minimal` | minimal | |
+| `q4_compact` | compact | |
 
-| Key | Look |
-|---|---|
-| `classic` | Original layout — **still indigo `#4f46e5`, no GST/HSN.** **Default**, so existing documents keep rendering identically |
-| `q1_classic` | ATS blue, GST rows + HSN + subject/delivery/terms |
-| `q2_proposal` | Navy pitch-style, timeline block, scope-first |
-| `q3_minimal` | Clean hairlines, ATS blue |
-| `q4_compact` | Dense single page for long lists (AMC renewals) |
+The two key sets are **disjoint**. `validate_pdf_theme` rejects a key from the
+wrong document type, and `registry.js` will not resolve one.
 
-## Switching themes
+## Resolution order
 
-**Globally** — Settings → PDF Layout. Stored on `CompanyProfile.invoice_pdf_theme`
-/ `quotation_pdf_theme`.
+First valid wins, then fall through:
 
-**Preview without saving** — append `?theme=<key>`:
+1. `document.pdf_theme` — the template saved on that invoice/quotation
+2. `CompanyProfile.invoice_pdf_theme` / `quotation_pdf_theme` — Printing Settings
+3. `classic_gst` / `classic` — the company standard
 
-```
-GET /api/invoices/<id>/pdf?theme=t3_minimal
-GET /api/quotations/<id>/pdf?theme=q2_proposal
-```
+In the browser this is `resolveKey(docType, savedKey, defaultKey)` in
+`registry.js`. On the server it is `resolve_key()` in `backend/pdf_themes.py`.
+Both are guarded against drift by `frontend/src/templates/__tests__/registry.test.js`,
+which reads `backend/pdf_themes.py` and asserts every key offered there resolves
+to a component.
 
-Unknown keys fall back to the default; the filename gets a `_themekey` suffix so
-previews don't collide with the real download.
+## Switching a template
 
-**API** — `GET /api/settings/themes` returns every theme with `label` and
-`description`, ready to populate a dropdown.
+**Per document** — the create/edit form dropdown, or the print view dropdown.
+The print view writes to `PUT /api/invoices/<id>/pdf-theme`, which is a
+dedicated endpoint because `PUT /<id>` rebuilds the line items and recomputes the
+status — a presentation change must not be able to rewrite the financial record.
 
-## Adding a theme
+**Globally** — Settings → Printing → Default Invoice/Quotation Template.
 
-1. Drop a file in `backend/templates/invoices/themes/` or
-   `backend/templates/quotations/themes/`.
-2. Register it in `backend/pdf_themes.py`.
-3. Done — no route changes needed.
+## There is no server-side PDF
 
-Start from any existing theme and copy it.
+`GET /api/.../pdf` and the `/api/settings/themes/preview/...` image endpoint no
+longer exist. Download opens the print view with `?print=1`, which triggers the
+browser print dialog, where the user chooses Save as PDF.
 
-## Shared macros
+This is the fix for the bug where three surfaces rendered three different
+layouts: there was a React sheet, a set of Jinja templates, and a folder of PNGs
+pretending to be previews. Two tests guard against it coming back:
+`test_server_side_pdf_endpoint_no_longer_exists` and
+`test_theme_preview_image_endpoint_is_gone`.
 
-`backend/templates/_pdfmacros.html` — import at the top of a theme:
+## Layout rules
 
-```jinja
-{% import "_pdfmacros.html" as m %}
-```
+- **Never set a height.** The previous stylesheet hardcoded mm row heights
+  measured from one sample scan, which left a ~48mm gap under a one-item table
+  and pushed everything onto page 2. Let content size the block.
+- **`white-space: nowrap` needs room.** "Authorized Signatory" used to overflow
+  a 21mm cell and print over its neighbour. Wrap instead, or widen the column.
+- Column labels sit on two lines (`SR.` / `NO.`), so give the header row
+  breathing room rather than a fixed height.
+- The items table may break across pages and repeats its `<thead>`; every other
+  block carries `break-inside: avoid`.
 
-| Macro | Purpose |
-|---|---|
-| `m.amt(v)` | `53,223/-` — Indian invoice format |
-| `m.num(v)` / `m.qty(v)` / `m.amt2(v)` | Plain / compact / 2-decimal numbers |
-| `m.dt(v, fmt)` / `m.dmy(v)` | Dates |
-| `m.nl(text)` | Multi-line, **HTML-escaped** — replaces the old unsafe `\|replace('\\n','<br>')\|safe` pattern |
-| `m.amount_in_words(v)` | Indian system (Crore/Lakh/Thousand) |
-| `m.amount_words_label(v)` | Adds the paise clause |
-| `m.status_label(inv)` | PAID / PART PAID / PENDING |
-| `m.bank_block(profile)` | GSTIN + company + bank + MSME |
-| `m.upi_qr(profile, amt, qr)` | Payment QR — `qr` passed explicitly, macros can't read caller context |
-| `m.footer_bar(profile)` | Contact strip |
+## Adding a template
 
-## xhtml2pdf constraints
+1. Add the key to `INVOICE_THEMES` or `QUOTATION_THEMES` in
+   `backend/pdf_themes.py`, and to `USER_THEMES` if it should be selectable.
+2. Map it to an archetype in `REGISTRY` in `frontend/src/templates/registry.js`.
+3. If you need a genuinely new structure, add an archetype in `layouts.jsx` and
+   give it a palette in `print.css`.
 
-Themes render through **xhtml2pdf 0.2.21**, which is not a browser engine.
-Every item below was found the hard way — each one produced visibly broken PDFs:
+`registry.test.js` fails if step 2 is missed, so a backend key cannot ship
+without a component.
 
-- **No `@frame`.** Frame content taller than the frame does not paginate, it
-  bleeds outside and paints over the header/footer band. Verified: 60
-  paragraphs (two pages' worth) inside a framed layout still produced a single
-  page with text drawn from y=-3 to y=762. Themes use plain
-  `@page { size: a4 portrait; margin: ... }` and the header/footer flow inline.
-- **`<colgroup><col width="N%">` is ignored.** Use absolute `cm` widths.
-- **Width on `<th>` alone is not enough** — every `<td>` in the column needs it
-  too, or reportlab auto-sizes the body and long names wrap one word per line.
-- **Cell padding shrinks an `<img>`.** The logo inside a padded `<td>` renders
-  smaller. Keep the cell at `padding:0` and pad the wrapper instead.
-- **A sibling cell's fixed `height` scales the logo down.** `height:26px`
-  beside a 150px logo renders it 38×19pt. Don't pin a height on the title cell.
-- **No CSS custom properties**, `box-shadow`, `border-radius`, flexbox, grid,
-  or float.
-- **Base-14 fonts only**: `Helvetica`, `Times`, `Courier`. The web fonts loaded
-  in `index.html` do not apply. `Helvetica` has no `−` (U+2212) and no `₹`, so
-  amounts use the `/-` suffix and a plain hyphen.
-- **Don't emit long runs of `&nbsp;`** — reportlab raises
-  `IndexError: string index out of range`. Use a bordered table for a rule.
-- `repeat="1"` on the items `<table>` repeats the column headings across
-  pages. This is what makes a 2-page invoice usable.
-
-## Fitting on one page
-
-Content width is 19.4cm with `margin: 0.6cm 0.8cm 0.4cm 0.8cm`. The standard
-6-column items table uses:
+## Verifying
 
 ```
-SR 1.1 · Particulars 7.0 · HSN 2.3 · Qty 1.5 · Rate 3.0 · Amount 4.5
+cd backend  && pytest -q                                  # 74 tests
+cd frontend && npm test                                   # 135 tests
+cd frontend && npm run build
+node tools/verify-templates.mjs                           # 19 live checks
 ```
 
-and the 7-column legal template:
-
-```
-SR 0.9 · Description 5.6 · HSN 2.0 · UOM 1.3 · Qty 1.3 · Rate 2.8 · Value 5.5
-```
-
-Tightening those matters more than anything else — a wrapped item name costs
-~60pt of row height. 12 of 17 themes fit a typical 3-item invoice on one page;
-the heavier ones (`t1`, `t4`, `t7`, `t9`, `t11`) spill a little to page 2 and
-render correctly there.
-
-`_fix_widths.py` regenerates the column widths if you add a theme.
-
-## Bugs fixed while building these
-
-These were pre-existing in the repo, not introduced by the themes:
-
-- **`@frame` layout produced unreadable PDFs.** The original
-  `invoices/pdf_template.html` rendered with the bank block stacked on top of
-  the header, the items table printed twice, and text overlapping itself — with
-  no error and no warning. Root cause and fix above.
-- **Column widths never applied**, so every item name wrapped to 3+ lines and
-  pushed the document onto a second page.
-- **Logo rendered at 28×14pt** instead of 112×56pt in several templates.
-- **Quotation template was indigo `#4f46e5`** while invoices were ATS blue.
-- **Quotation template dropped `gst_percent` / `gst_amount` entirely**, despite
-  both being stored. GST now renders.
-- **Quotation template had no HSN column** and ignored `subject`,
-  `delivery_address`, `payment_terms`.
-- **Quotation template set `body { font-weight: bold }`** — entire document bold.
-- `|replace('\n','<br>')|safe` passed unescaped user text straight into the PDF
-  parser. `m.nl()` escapes each line first.
-- `label='SCAN &amp; PAY'` double-escaped to `SCAN &amp;amp; PAY`. Labels now
-  pass a bare `&`.
-
-## Preview images
-
-`backend/_preview/` holds a rendered PNG of every theme at 100 DPI, generated
-from a representative invoice and quotation. Regenerate after editing a theme
-by rendering it and rasterising page 1.
+`tools/verify-templates.mjs` drives a real browser through the whole flow and
+writes screenshots to `.render/verify/`. Run the app first
+(`cd backend; python app.py`).

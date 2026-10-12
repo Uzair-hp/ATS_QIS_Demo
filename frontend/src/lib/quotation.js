@@ -11,10 +11,8 @@
 //
 // When the API supplies stored totals (subTotal / discountAmount / gstAmount /
 // totalAmount) those are authoritative and preferred: they are what the record
-// and the server-rendered PDF both use. Recomputation is the fallback for a
-// sheet driven from local JSON.
-
-export const roundRupee = (n) => Math.round(n)
+// and the templates both use. Recomputation is the fallback for a sheet driven
+// from local JSON.
 
 const round2 = (n) => Math.round(n * 100) / 100
 
@@ -72,21 +70,9 @@ export function computeTotals(quotation) {
   }
 }
 
-// Amount formatting.
-//
-// The target image prints plain digits with NO thousands separators and a
-// trailing "/-"; the subtotal additionally carries a doubled "/-/-". That
-// quirk is reproduced verbatim here so it can be changed in one place.
-export const AMOUNT_SUFFIX = '/-'
-export const SUBTOTAL_SUFFIX = '/-/-'
-
-export function formatAmount(value) {
-  return `${roundRupee(value)}${AMOUNT_SUFFIX}`
-}
-
-export function formatSubtotal(value) {
-  return `${roundRupee(value)}${SUBTOTAL_SUFFIX}`
-}
+// Amount and date formatting live in docData.js (money) and below (formatDate).
+// The old "/-" and "/-/-" suffixes were reproduced from a reference scan and
+// rounded away real paise, so they are gone with the templates that used them.
 
 /** "2026-05-27" -> "27/05/2026". */
 export function formatDate(value) {
@@ -101,97 +87,82 @@ export function formatCompanyName(name) {
   return name ? `CompanyName-${name}.` : ''
 }
 
-// ── loading external data ───────────────────────────────────────────────
-//
-// The sheet only ever reads a single `quotation` object, so anything that can
-// produce that shape can drive it. `normaliseQuotation` fills the gaps so a
-// partially filled JSON payload still renders instead of throwing.
+// ── images ──────────────────────────────────────────────────────────────
 
-const str = (v) => (v === null || v === undefined ? '' : String(v))
-const num = (v) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
-
-export class QuotationShapeError extends Error {}
-
-export function normaliseQuotation(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new QuotationShapeError('Expected a JSON object at the top level.')
-  }
-
-  const rawItems = input.items ?? []
-  if (!Array.isArray(rawItems)) {
-    throw new QuotationShapeError('"items" must be an array.')
-  }
-
-  const company = input.company ?? {}
-  const client = input.client ?? {}
-
-  return {
-    title: str(input.title),
-    docLabel: str(input.docLabel ?? 'INVOICENO:-'),
-    invoiceNo: str(input.invoiceNo),
-    date: str(input.date),
-    voucherNo: str(input.voucherNo),
-    paymentTerm: str(input.paymentTerm),
-    delivery: str(input.delivery),
-    gstPercent: num(input.gstPercent),
-    // Discount is applied before GST, matching the backend.
-    discount: num(input.discount),
-    discountType: str(input.discountType ?? 'flat'),
-    // Stored totals from the API, when present. computeTotals prefers these.
-    subTotal: serverFigure(input.subTotal),
-    discountAmount: serverFigure(input.discountAmount),
-    gstAmount: serverFigure(input.gstAmount),
-    totalAmount: serverFigure(input.totalAmount),
-    client: {
-      name: str(client.name),
-      address: str(client.address),
-      kindAttn: str(client.kindAttn),
-      gstNo: str(client.gstNo),
-    },
-    items: rawItems.map((it) => ({
-      description: str(it?.description),
-      hsn: str(it?.hsn),
-      qty: num(it?.qty),
-      rate: num(it?.rate),
-    })),
-    company: {
-      name: str(company.name),
-      gstin: str(company.gstin),
-      bank: str(company.bank),
-      branch: str(company.branch),
-      accountNo: str(company.accountNo),
-      ifsc: str(company.ifsc),
-      msme: str(company.msme),
-      email: str(company.email),
-      website: str(company.website),
-      phones: str(company.phones),
-      address: str(company.address),
-      stampImage: str(company.stampImage),
-    },
-  }
-}
-
-export function parseQuotationJson(text) {
-  let parsed
-  try {
-    parsed = JSON.parse(text)
-  } catch (e) {
-    throw new QuotationShapeError(`Invalid JSON: ${e.message}`)
-  }
-  return normaliseQuotation(parsed)
-}
-
-export function stampDataUri(base64) {
+/**
+ * Wrap a stored base64 blob in a data URI.
+ *
+ * `mime` is the value the backend sniffed from the upload's magic bytes and
+ * stored alongside it, so it is authoritative when present. The sniffing below
+ * is the fallback for a caller that has the blob but not the recorded type.
+ */
+export function stampDataUri(base64, mime) {
   if (!base64) return ''
+  if (mime) return `data:${mime};base64,${base64}`
   const head = base64.slice(0, 16)
-  let mime = 'image/png'
-  if (head.startsWith('/9j/')) mime = 'image/jpeg'
-  else if (head.startsWith('R0lGOD')) mime = 'image/gif'
-  else if (head.startsWith('UklGR')) mime = 'image/webp'
-  else if (head.startsWith('iVBORw0KGgo')) mime = 'image/png'
-  else if (head.startsWith('PHN2Zy')) mime = 'image/svg+xml'
-  return `data:${mime};base64,${base64}`
+  let sniffed = 'image/png'
+  if (head.startsWith('/9j/')) sniffed = 'image/jpeg'
+  else if (head.startsWith('R0lGOD')) sniffed = 'image/gif'
+  else if (head.startsWith('UklGR')) sniffed = 'image/webp'
+  else if (head.startsWith('iVBORw0KGgo')) sniffed = 'image/png'
+  else if (head.startsWith('PHN2Zy')) sniffed = 'image/svg+xml'
+  return `data:${sniffed};base64,${base64}`
+}
+
+// ── amount in words ──────────────────────────────────────────────────────
+
+// Indian numbering (Crore / Lakh / Thousand), matching the macro the retired
+// Jinja templates used. Ported rather than dropped: the shipped PDFs carried
+// this line and losing it is a regression customers notice.
+
+const ONES = [
+  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight',
+  'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen',
+  'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen',
+]
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+function twoDigit(x) {
+  if (x < 0) return ''
+  if (x < 10) return ONES[x]
+  if (x < 20) return ONES[x]
+  const t = TENS[Math.floor(x / 10)]
+  const o = x % 10
+  return o ? `${t}-${ONES[o]}` : t
+}
+
+function threeDigit(x) {
+  if (x <= 0) return ''
+  const h = Math.floor(x / 100)
+  const r = x % 100
+  if (!h) return twoDigit(r)
+  if (!r) return `${ONES[h]} Hundred`
+  return `${ONES[h]} Hundred and ${twoDigit(r)}`
+}
+
+export function amountInWords(value) {
+  const v = Math.floor(Number(value) || 0)
+  if (v <= 0) return 'Zero Rupees Only'
+  const crore = Math.floor(v / 10000000)
+  const lakh = Math.floor((v % 10000000) / 100000)
+  const thousand = Math.floor((v % 100000) / 1000)
+  const last3 = v % 1000
+  const parts = []
+  if (crore) parts.push(`${twoDigit(crore)} Crore`)
+  if (lakh) parts.push(`${twoDigit(lakh)} Lakh`)
+  if (thousand) parts.push(`${twoDigit(thousand)} Thousand`)
+  const tail = threeDigit(last3)
+  if (tail) parts.push(tail)
+  return `${parts.join(' ')} Rupees Only`
+}
+
+/** Whole rupees plus a paise clause when the amount is not round. */
+export function amountWordsLabel(value) {
+  const n = Number(value) || 0
+  const rupees = Math.floor(n)
+  const paise = Math.round((n - rupees) * 100)
+  if (paise > 0) {
+    return `${amountInWords(n)} and ${paise} Paise Only`
+  }
+  return amountInWords(n)
 }

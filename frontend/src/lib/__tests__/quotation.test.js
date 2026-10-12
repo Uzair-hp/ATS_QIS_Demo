@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  amountInWords,
+  amountWordsLabel,
   computeTotals,
-  formatAmount,
   formatDate,
-  formatSubtotal,
-  normaliseQuotation,
-  QuotationShapeError,
   stampDataUri,
 } from '../quotation.js'
 
@@ -144,18 +142,31 @@ describe('computeTotals', () => {
   })
 })
 
-describe('amount formatting', () => {
-  it('prints whole digits with the trailing /- the target sheet uses', () => {
-    expect(formatAmount(115640)).toBe('115640/-')
+describe('amount in words', () => {
+  // Ported from the retired Jinja macro. It shipped on every themed PDF and
+  // would have been a silent regression if dropped with the templates.
+  it('reads whole rupees', () => {
+    expect(amountInWords(115640)).toBe('One Lakh Fifteen Thousand Six Hundred and Forty Rupees Only')
   })
 
-  it('gives the subtotal its own doubled suffix', () => {
-    expect(formatSubtotal(115640)).toBe('115640/-/-')
+  it('uses crore and lakh segmentation', () => {
+    expect(amountInWords(10000000)).toBe('One Crore Rupees Only')
+    // Compound tens are hyphenated, as the retired Jinja macro rendered them,
+    // so old and new documents read the same.
+    expect(amountInWords(12345678)).toBe('One Crore Twenty-Three Lakh Forty-Five Thousand Six Hundred and Seventy-Eight Rupees Only')
   })
 
-  it('rounds paise away', () => {
-    expect(formatAmount(99.99)).toBe('100/-')
-    expect(formatAmount(0.4)).toBe('0/-')
+  it('handles the zero and small cases', () => {
+    expect(amountInWords(0)).toBe('Zero Rupees Only')
+    expect(amountInWords(19)).toBe('Nineteen Rupees Only')
+    expect(amountInWords(20)).toBe('Twenty Rupees Only')
+    expect(amountInWords(100)).toBe('One Hundred Rupees Only')
+    expect(amountInWords(101)).toBe('One Hundred and One Rupees Only')
+  })
+
+  it('ignores paise, and the label appends them when there are any', () => {
+    expect(amountWordsLabel(944)).toBe('Nine Hundred and Forty-Four Rupees Only')
+    expect(amountWordsLabel(944.5)).toBe('Nine Hundred and Forty-Four Rupees Only and 50 Paise Only')
   })
 })
 
@@ -171,40 +182,6 @@ describe('formatDate', () => {
   it('returns an empty string for no date', () => {
     expect(formatDate('')).toBe('')
     expect(formatDate(null)).toBe('')
-  })
-})
-
-describe('normaliseQuotation', () => {
-  it('rejects non-objects', () => {
-    expect(() => normaliseQuotation(null)).toThrow(QuotationShapeError)
-    expect(() => normaliseQuotation([])).toThrow(QuotationShapeError)
-    expect(() => normaliseQuotation('x')).toThrow(QuotationShapeError)
-  })
-
-  it('requires an items array', () => {
-    expect(() => normaliseQuotation({ items: 'nope' })).toThrow(QuotationShapeError)
-  })
-
-  it('fills every field the sheet reads so it cannot render undefined', () => {
-    const n = normaliseQuotation({ items: [] })
-    for (const key of ['title', 'invoiceNo', 'date', 'voucherNo',
-      'paymentTerm', 'delivery']) {
-      expect(n[key]).toBe('')
-    }
-    for (const key of ['gstPercent', 'discount']) {
-      expect(n[key]).toBe(0)
-    }
-    expect(n.client).toEqual({ name: '', address: '', kindAttn: '', gstNo: '' })
-    expect(n.company.stampImage).toBe('')
-  })
-
-  it('defaults a quotation doc label', () => {
-    expect(normaliseQuotation({ items: [] }).docLabel).toBe('INVOICENO:-')
-  })
-
-  it('nulls out undefined rather than stringifying it', () => {
-    const n = normaliseQuotation({ items: [{ description: undefined }] })
-    expect(n.items[0].description).toBe('')
   })
 })
 
@@ -227,5 +204,10 @@ describe('stampDataUri', () => {
 
   it('defaults to png for an unrecognised payload', () => {
     expect(stampDataUri('QUJD')).toMatch(/^data:image\/png;base64,/)
+  })
+
+  it('prefers the recorded MIME type over sniffing', () => {
+    // The backend stores the type it sniffed from the upload's magic bytes.
+    expect(stampDataUri('QUJD', 'image/svg+xml')).toBe('data:image/svg+xml;base64,QUJD')
   })
 })

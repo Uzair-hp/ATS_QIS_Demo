@@ -95,17 +95,28 @@ describe('Settings Printing tab', () => {
     expect(reset.label).toBe('Reset to default (classic_gst)')
   })
 
-  it('opens both previews on the company standard when no default is set', async () => {
+  it('previews both sides on the company standard when no default is set', async () => {
     await openPrinting()
-    // Settings keeps upstream's "Preview" heading, so assert on the images.
+    // The preview used to be a PNG served from /api/settings/themes/preview,
+    // so it was a different renderer from the printed document and could never
+    // be compared with it. It is now the same registry, so assert on the sheet.
     await waitFor(() =>
-      expect(document.querySelector('img.theme-preview-img')).toBeTruthy())
-    const srcs = Array.from(document.querySelectorAll('img.theme-preview-img'))
-      .map((i) => i.getAttribute('src'))
-    expect(srcs).toContain('/api/settings/themes/preview/invoices/classic_gst/1')
-    expect(srcs).toContain('/api/settings/themes/preview/quotations/classic/1')
+      expect(document.querySelectorAll('.doc-sheet').length).toBeGreaterThan(0))
+    const sheets = Array.from(document.querySelectorAll('.doc-sheet'))
+      .map((el) => el.getAttribute('class'))
+    expect(sheets.some((c) => c.includes('doc-t-classic'))).toBe(true)
     // Nothing else may appear while no company default is set.
-    expect(srcs).toHaveLength(2)
+    expect(sheets).toHaveLength(2)
+  })
+
+  it('previews the selected template rather than always the standard', async () => {
+    const user = userEvent.setup()
+    await openPrinting()
+    await user.selectOptions(document.getElementById('company-default-quotation'), 'q2_proposal')
+    await waitFor(() => {
+      const sheets = Array.from(document.querySelectorAll('.doc-sheet'))
+      expect(sheets.some((el) => el.getAttribute('class').includes('doc-t-hero'))).toBe(true)
+    })
   })
 })
 

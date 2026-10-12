@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
 import ChangePasswordForm from '../components/ChangePasswordForm'
-import ThemePreview from '../components/ThemePreview'
+import TemplatePreview from '../components/TemplatePreview'
+import { sampleData } from '../lib/sampleData'
 import { useToast } from '../context/ToastContext'
-import { groupThemes, defaultFor, describeTheme, findTheme } from '../lib/pdfThemes'
+import { groupThemes, defaultFor, describeTheme } from '../lib/pdfThemes'
 
 const contactFields = [
   ['tagline', 'Tagline'],
@@ -164,19 +165,10 @@ export default function Settings() {
     } catch (err) { push(err.response?.data?.error || 'Failed.', 'danger') }
   }
 
-  // Grouped catalogue, split per document type so the two key sets can never
-  // be confused. The per-side lookups below resolve against these, not against
-  // the raw payload.
-  const invoiceGroups = groupThemes(themes, 'invoice')
-  const quotationGroups = groupThemes(themes, 'quotation')
-  // Fall back to the backend's own default so the preview opens on the company
-  // standard (classic_gst / classic) when no company default has been set,
-  // instead of rendering nothing. The saved value is untouched - this is only
-  // what the preview shows.
-  const invoiceTheme = findTheme(invoiceGroups,
-    themeForm.invoice_pdf_theme || defaultFor(themes, 'invoice'))
-  const quotationTheme = findTheme(quotationGroups,
-    themeForm.quotation_pdf_theme || defaultFor(themes, 'quotation'))
+  // Settings has no document to show, so it previews against representative
+  // sample data - and through the same registry the real documents use.
+  const [invoiceSample] = useState(() => sampleData('invoice'))
+  const [quotationSample] = useState(() => sampleData('quotation'))
 
   return (
     <Layout
@@ -512,7 +504,9 @@ export default function Settings() {
                   Printing Settings
                 </h6>
                 <p className="text-muted mb-0" style={{ fontSize: '0.82rem' }}>
-                  Server-generated PDFs use these templates. Browser print (Print / Save as PDF) is unaffected.
+                  These are the templates the preview, the print view and
+                  Print / Save as PDF all render from. There is no separate
+                  server-side PDF layout.
                 </p>
               </div>
 
@@ -525,7 +519,12 @@ export default function Settings() {
                   onChange={(v) => setThemeForm({ ...themeForm, invoice_pdf_theme: v })}
                   themes={themes}
                 />
-                <ThemePreview doc="invoices" theme={invoiceTheme} />
+                <TemplatePreview
+                  docType="invoice"
+                  theme={themeForm.invoice_pdf_theme || defaultFor(themes, 'invoice')}
+                  data={invoiceSample}
+                  title="Invoice preview"
+                />
               </div>
 
               <div className="col-12">
@@ -537,7 +536,12 @@ export default function Settings() {
                   onChange={(v) => setThemeForm({ ...themeForm, quotation_pdf_theme: v })}
                   themes={themes}
                 />
-                <ThemePreview doc="quotations" theme={quotationTheme} />
+                <TemplatePreview
+                  docType="quotation"
+                  theme={themeForm.quotation_pdf_theme || defaultFor(themes, 'quotation')}
+                  data={quotationSample}
+                  title="Quotation preview"
+                />
               </div>
 
               <div className="col-12">

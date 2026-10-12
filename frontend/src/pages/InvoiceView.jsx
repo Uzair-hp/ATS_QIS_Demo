@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
-import { invoicePdfHref } from '../lib/pdfHref'
+import { invoicePrintHref } from '../lib/printHref'
 import { useToast } from '../context/ToastContext'
 
 const formatINR = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -317,21 +317,19 @@ export default function InvoiceView() {
               <h6 className="fw-bold mb-0">Actions</h6>
             </div>
             <div className="card-body p-3 d-flex flex-column gap-2">
-              <a
-                href={invoicePdfHref(inv)}
+              <Link
+                to={invoicePrintHref(inv, { autoPrint: true })}
                 className="btn btn-inf w-100"
-                target="_blank"
-                rel="noreferrer"
               >
                 <i className="bi bi-file-earmark-pdf"></i>
-                <span>Download Branded PDF</span>
-              </a>
+                <span>Download PDF</span>
+              </Link>
 
-              {/* Browser print of the measured A4 sheet. The branded PDF above
-                  is the server-side xhtml2pdf render and is left untouched. */}
+              {/* Same renderer, opened without auto-print so the template can be
+                  changed before printing. */}
               <Link to={`/invoices/${inv.id}/print`} className="btn btn-inf-outline w-100">
                 <i className="bi bi-printer"></i>
-                <span>Print / Save as PDF</span>
+                <span>Print / Change Template</span>
               </Link>
 
               {inv.whatsapp_url && (

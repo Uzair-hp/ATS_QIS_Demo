@@ -1,53 +1,21 @@
-import Header from './print/Header'
-import PartyDetails from './print/PartyDetails'
-import ItemsTable from './print/ItemsTable'
-import Totals from './print/Totals'
-import BankDetails from './print/BankDetails'
-import SignatureBlock from './print/SignatureBlock'
-import Footer from './print/Footer'
-import { computeTotals } from '../lib/quotation'
+import DocTemplate from '../templates/DocTemplate.jsx'
 
 /**
- * Renders the A4 document sheet from a single `document` object. The same
- * layout serves quotations and invoices - the mapper decides the only real
- * differences (docLabel, voucherNo, title).
+ * The printable document sheet.
  *
- * No value is hardcoded here: every figure, label and contact detail comes from
- * props, and every total is derived in `computeTotals`.
+ * Takes the same `data` and `theme` as every other surface. It renders nothing
+ * on its own: the registry decides the layout, which is why changing the
+ * template now changes what is on screen instead of only rewriting a download
+ * URL.
  */
-export default function DocumentPrint({ document }) {
-  const totals = computeTotals(document)
-
+export default function DocumentPrint({ docType, data, theme, fallbackTheme }) {
+  if (!data) return null
   return (
-    <div className="qp-sheet-wrap">
-      <div className="qp-sheet">
-        <div className="qp-watermark" aria-hidden="true" />
-
-        <Header quotation={document} />
-
-        <div className="qp-title-area">
-          <h1 className="qp-title">{document.title}</h1>
-        </div>
-
-        <div className="qp-sec qp-sec-info">
-          <PartyDetails quotation={document} />
-        </div>
-
-        <div className="qp-sec qp-sec-items">
-          <ItemsTable lines={totals.lines} />
-        </div>
-
-        <div className="qp-sec qp-sec-totals">
-          <Totals totals={totals} />
-          <BankDetails quotation={document} totals={totals} />
-        </div>
-
-        <div className="qp-sec qp-sec-sig">
-          <SignatureBlock quotation={document} />
-        </div>
-
-        <Footer quotation={document} />
-      </div>
-    </div>
+    <DocTemplate
+      docType={docType}
+      data={data}
+      theme={theme}
+      fallbackTheme={fallbackTheme}
+    />
   )
 }

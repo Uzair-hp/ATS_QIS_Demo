@@ -1,12 +1,12 @@
-// Pure helpers for the grouped PDF theme catalogue.
+// Pure helpers for the grouped template catalogue.
 //
 // GET /api/settings/themes answers with one shape:
-//   { invoices: [{ category, items: [{ key, label, description, preview_pages }] }],
+//   { invoices: [{ category, items: [{ key, label, description }] }],
 //     quotations: [...], default_invoice, default_quotation }
 //
-// Every lookup goes through docType. The invoice and quotation key sets are
-// disjoint and the backend rejects a key from the wrong side, so a selector
-// that mixed them would offer choices that cannot be saved.
+// The catalogue decides which keys are valid; which key renders what is
+// templates/registry.js. Every lookup here goes through docType, and the
+// invoice and quotation key sets are disjoint.
 
 export const SIDES = { invoice: 'invoices', quotation: 'quotations' }
 

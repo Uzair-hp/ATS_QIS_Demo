@@ -189,8 +189,8 @@ class Invoice(db.Model):
     voucher_number = db.Column(db.String(50), nullable=True)
     gst_percent = db.Column(db.Float, default=0.0)
     gst_amount = db.Column(db.Float, default=0.0)
-    # Chosen PDF template. NULL means "use the company default"; the resolution
-    # order lives in pdf_themes.resolve_path, not here.
+    # Chosen template. NULL means "use the company default"; the resolution
+    # order lives in pdf_themes.resolve_key, not here.
     pdf_theme = db.Column(db.String(50), nullable=True)
 
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')

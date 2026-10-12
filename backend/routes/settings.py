@@ -3,10 +3,10 @@ Company profile / settings (JSON).
 """
 
 import base64
-from flask import Blueprint, request, jsonify, current_app, send_file
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from models import db, CompanyProfile
-from pdf_themes import themes_json, preview_path, is_allowed
+from pdf_themes import themes_json
 from routes.validation import validate_pdf_theme, validation_error_response
 
 settings_bp = Blueprint('settings', __name__)
@@ -108,25 +108,6 @@ def company_settings():
 @login_required
 def get_themes():
     return jsonify(themes_json())
-
-
-@settings_bp.route('/themes/preview/<doc>/<key>/<int:page>', methods=['GET'])
-@login_required
-def theme_preview(doc, key, page):
-    """Serve a pre-rendered preview image for a PDF theme.
-
-    Two checks, not one. preview_path validates the key against a safe pattern,
-    so the URL cannot escape the _preview directory. is_allowed then restricts
-    it to the templates the API is willing to offer: _preview/ also holds images
-    for the reference templates that were deliberately left out of the
-    allowlist, and those must not be reachable just by knowing the filename.
-    """
-    if not is_allowed('invoice' if doc == 'invoices' else 'quotation', key):
-        return jsonify({'error': 'preview not available'}), 404
-    path = preview_path(doc, key, page)
-    if not path:
-        return jsonify({'error': 'preview not available'}), 404
-    return send_file(path, mimetype='image/png')
 
 
 @settings_bp.route('/', methods=['POST', 'PUT'])

@@ -12,8 +12,9 @@ Flask-SQLAlchemy
 Flask-Login
 Werkzeug
 flask-cors
+# UPI QR for invoice templates. The image is handed to the browser, which
+# draws it - xhtml2pdf was the only reason a server-side PDF engine existed.
 qrcode[pil]
-xhtml2pdf
 python-dotenv
 
 # Production WSGI server. Render's startCommand uses gunicorn; PythonAnywhere

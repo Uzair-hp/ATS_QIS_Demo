@@ -71,6 +71,20 @@ def post_csrf(login):
 
 
 @pytest.fixture
+def put_csrf(login):
+    """PUT helper that carries the session's CSRF token.
+
+    The app enforces CSRF on every unsafe method once a session exists. PUT
+    takes JSON here, so the token goes in the header the SPA uses.
+    """
+    def _put(path, payload=None):
+        return login.put(path, json=payload or {},
+                         headers={'X-CSRFToken': login.csrf_token})
+
+    return _put
+
+
+@pytest.fixture
 def sample(ctx):
     """A client, profile with bank details, and one fully-populated quotation."""
     from models import (Client, CompanyProfile, Quotation, QuotationItem,

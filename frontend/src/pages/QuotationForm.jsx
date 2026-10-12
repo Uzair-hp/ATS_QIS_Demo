@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
 import TemplateSelect from '../components/TemplateSelect'
-import ThemePreview from '../components/ThemePreview'
-import { groupThemes, defaultFor, findTheme } from '../lib/pdfThemes'
+import TemplatePreview from '../components/TemplatePreview'
+import { defaultFor } from '../lib/pdfThemes'
+import { buildDocData } from '../lib/docData'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -15,6 +16,10 @@ export default function QuotationForm() {
   const { push } = useToast()
 
   const [meta, setMeta] = useState({ clients: [], services: [], company: {} })
+  // The company profile the template renders, so the preview shows the real
+  // bank block, GSTIN and stamp rather than the blanks the API's narrow
+  // `profile` key used to produce.
+  const [settings, setSettings] = useState({})
   const [clientId, setClientId] = useState('')
   const [validDays, setValidDays] = useState(15)
   const [estimatedTimeline, setEstimatedTimeline] = useState('')
@@ -27,14 +32,20 @@ export default function QuotationForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ ...blankItem }])
   const [error, setError] = useState('')
+  // The number this document already carries, so the preview in edit mode shows
+  // what will actually be printed rather than a placeholder.
+  const [docNumber, setDocNumber] = useState('')
   // '' means "follow the company default"; see InvoiceForm for the reasoning.
   const [pdfTheme, setPdfTheme] = useState('')
-  // The catalogue TemplateSelect already fetched, reused to show the preview of
-  // whatever is selected without a second request.
+  // The catalogue TemplateSelect already fetched, reused to resolve the company
+  // default without a second request.
   const [themes, setThemes] = useState(null)
-  const selectedTheme = useMemo(
-    () => findTheme(groupThemes(themes, 'quotation'), pdfTheme || defaultFor(themes, 'quotation')),
-    [themes, pdfTheme])
+
+  const activeTheme = pdfTheme || defaultFor(themes, 'quotation')
+
+  useEffect(() => {
+    api.get('/settings/').then((res) => setSettings(res.data || {}))
+  }, [])
 
   useEffect(() => {
     api.get('/quotations/meta').then((res) => {
@@ -49,6 +60,7 @@ export default function QuotationForm() {
     if (id) {
       api.get(`/quotations/${id}`).then((res) => {
         const q = res.data
+        setDocNumber(q.quotation_number || '')
         setClientId(String(q.client_id))
         setEstimatedTimeline(q.estimated_timeline || '')
         setSubject(q.subject || '')
@@ -73,6 +85,44 @@ export default function QuotationForm() {
   const net = Math.max(subTotal - discountAmount, 0)
   const gstAmount = net * (parseFloat(gstPercent) || 0) / 100
   const total = net + gstAmount
+
+  // Pinned once so the preview's dates do not drift while the form is being
+  // typed in, and so nothing impure runs on every render.
+  const [now] = useState(() => new Date())
+
+  // The document as currently typed, fed to the same builder and the same
+  // template the saved document will render through. This is what replaces the
+  // static sample PNG.
+  const previewData = useMemo(() => {
+    const client = meta.clients.find((c) => String(c.id) === String(clientId))
+    const valid = new Date(now.getTime() + (Number(validDays) || 0) * 86400000)
+    return buildDocData('quotation', {
+      quotation_number: docNumber || 'Draft quotation',
+      client: client || {},
+      date_created: now.toISOString(),
+      valid_until: valid.toISOString(),
+      estimated_timeline: estimatedTimeline,
+      subject,
+      payment_terms: paymentTerms,
+      delivery_address: deliveryAddress,
+      notes,
+      discount,
+      discount_type: discountType,
+      gst_percent: gstPercent,
+      status: 'Draft',
+      items: items
+        .filter((it) => (it.name || '').trim())
+        .map((it) => ({
+          service_name: it.name,
+          description: it.description,
+          hsn_code: it.hsn_code,
+          quantity: Number(it.quantity) || 0,
+          rate: Number(it.rate) || 0,
+        })),
+    }, settings)
+  }, [id, docNumber, meta.clients, clientId, validDays, estimatedTimeline, subject,
+      paymentTerms, deliveryAddress, notes, discount, discountType, gstPercent,
+      items, settings, now])
 
   const updateItem = (i, field, value) => {
     const next = [...items]
@@ -180,12 +230,11 @@ export default function QuotationForm() {
               <div className="row g-3">
                 <div className="col-md-6"><TemplateSelect docType="quotation" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
                 <div className="col-md-6">
-                  <ThemePreview
-                    doc="quotations"
-                    theme={selectedTheme}
-                    title="Sample preview"
-                    paged
-                    showEmpty
+                  <TemplatePreview
+                    docType="quotation"
+                    theme={activeTheme}
+                    data={previewData}
+                    title="Live preview"
                   />
                 </div>
               </div>

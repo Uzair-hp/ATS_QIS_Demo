@@ -11,12 +11,10 @@ from datetime import datetime, timedelta
 
 import qrcode
 from flask import (
-    Blueprint, request, jsonify, current_app, make_response, render_template
+    Blueprint, request, jsonify, current_app, make_response
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, CompanyProfile, now_ist, IST
-from routes.pdf_assets import get_pdf_assets
-from pdf_themes import resolve_path
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_due_days, validate_advance_amount, validate_pdf_theme,
@@ -258,7 +256,18 @@ def invoice_meta():
     services = Service.query.order_by(Service.name).all()
     profile = CompanyProfile.get_profile()
     return jsonify({
-        'clients': [{'id': c.id, 'name': c.name} for c in clients],
+        # Full client rows, not just id and name: the create/edit live preview
+        # renders the party block through the real template, and it needs the
+        # trading name, address and GSTIN to show what will be printed.
+        'clients': [{
+            'id': c.id,
+            'name': c.name,
+            'company_name': c.company_name or '',
+            'email': c.email or '',
+            'phone': c.phone or '',
+            'address': c.address or '',
+            'gst_number': c.gst_number or '',
+        } for c in clients],
         'services': [{'id': s.id, 'name': s.name, 'description': s.description or '', 'hsn_code': s.hsn_code or '', 'base_price': s.base_price} for s in services],
         'company': {
             'name': profile.name,
@@ -426,7 +435,11 @@ def view_invoice(id):
     return jsonify({
         **_invoice_json(invoice, detailed=True),
         'qr_base64': qr_b64,
-        'logo_base64': get_pdf_assets()['logo_base64'],
+        # The company profile's own uploaded logo. This used to be the bundled
+        # ATS mark read off disk, which meant a company that uploaded a logo
+        # still saw ATS on its documents.
+        'logo_base64': profile.logo_image or '',
+        'logo_mime': profile.logo_mime or '',
         'whatsapp_url': whatsapp_url,
         'email_url': email_url,
         'profile': {
@@ -601,42 +614,22 @@ def unarchive_invoice(id):
     return jsonify({'message': f'Invoice {invoice.invoice_number} restored.'})
 
 
-# ── PDF ───────────────────────────────────────────────
+# ── TEMPLATE ─────────────────────────────────────────
 
-@invoices_bp.route('/<int:id>/pdf')
+@invoices_bp.route('/<int:id>/pdf-theme', methods=['PUT'])
 @login_required
-def download_pdf(id):
+def update_pdf_theme(id):
+    """Save the chosen template on one invoice.
+
+    Its own endpoint rather than a field on PUT /<id>, because that handler
+    rebuilds the line items and recomputes the status and the balance - a
+    presentation change must not be able to rewrite the financial record.
+    """
     invoice = Invoice.query.get_or_404(id)
-    profile = CompanyProfile.get_profile()
-    qr_b64 = generate_upi_qr_base64(invoice.balance_due, invoice.invoice_number)
-
-    # ?theme= is a one-time override for this download and is never written
-    # back to the row; then the invoice's own choice, then the company default.
-    template_path = resolve_path(
-        'invoice',
-        request.args.get('theme'),
-        invoice.pdf_theme,
-        profile.invoice_pdf_theme,
-    )
-
-    html_string = render_template(
-        template_path,
-        invoice=invoice, qr_base64=qr_b64, profile=profile,
-        **get_pdf_assets(),
-    )
-
+    data = request.get_json(silent=True) or request.form
     try:
-        from xhtml2pdf import pisa
-        result_buf = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.StringIO(html_string), dest=result_buf)
-        if pisa_status.err:
-            return jsonify({'error': 'PDF generation encountered errors.'}), 500
-        pdf_bytes = result_buf.getvalue()
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = (
-            f'attachment; filename={invoice.invoice_number}.pdf'
-        )
-        return response
-    except Exception as e:
-        return jsonify({'error': f'PDF generation failed: {e}'}), 500
+        invoice.pdf_theme = validate_pdf_theme('invoice', data.get('pdf_theme'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+    db.session.commit()
+    return jsonify(_invoice_json(invoice, detailed=True))

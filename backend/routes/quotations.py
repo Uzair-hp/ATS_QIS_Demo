@@ -1,5 +1,5 @@
-"""
-Quotations routes — JSON CRUD, status, duplicate/revisions, convert to invoice, PDF, CSV.
+﻿"""
+Quotations routes â€” JSON CRUD, status, duplicate/revisions, convert to invoice, PDF, CSV.
 """
 
 import io
@@ -11,12 +11,10 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from flask import (
-    Blueprint, request, jsonify, make_response, render_template
+    Blueprint, request, jsonify, make_response
 )
 from flask_login import login_required
 from models import db, Client, Service, Invoice, InvoiceItem, Quotation, QuotationItem, CompanyProfile, now_ist, IST
-from routes.pdf_assets import get_pdf_assets
-from pdf_themes import resolve_path
 from routes.validation import (
     validate_client_id, validate_discount, validate_gst_percent,
     validate_valid_days, validate_pdf_theme, parse_item_quantity, parse_item_rate,
@@ -26,7 +24,7 @@ from routes.validation import (
 quotations_bp = Blueprint('quotations', __name__)
 
 
-# ── Helpers ───────────────────────────────────────────
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def generate_quotation_number():
     year = datetime.now().year
@@ -156,7 +154,7 @@ def _query_quotations():
     return query, search, status_filter
 
 
-# ── LIST / EXPORT / META ──────────────────────────────
+# â”€â”€ LIST / EXPORT / META â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/')
 @login_required
@@ -221,7 +219,18 @@ def quotation_meta():
     services = Service.query.order_by(Service.name).all()
     profile = CompanyProfile.get_profile()
     return jsonify({
-        'clients': [{'id': c.id, 'name': c.name} for c in clients],
+        # Full client rows, not just id and name: the create/edit live preview
+        # renders the party block through the real template, and it needs the
+        # trading name, address and GSTIN to show what will be printed.
+        'clients': [{
+            'id': c.id,
+            'name': c.name,
+            'company_name': c.company_name or '',
+            'email': c.email or '',
+            'phone': c.phone or '',
+            'address': c.address or '',
+            'gst_number': c.gst_number or '',
+        } for c in clients],
         'services': [{'id': s.id, 'name': s.name, 'description': s.description or '', 'hsn_code': s.hsn_code or '', 'base_price': s.base_price} for s in services],
         'company': {
             'name': profile.name,
@@ -231,7 +240,7 @@ def quotation_meta():
     })
 
 
-# ── CREATE ────────────────────────────────────────────
+# â”€â”€ CREATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/', methods=['POST'])
 @login_required
@@ -333,7 +342,7 @@ def create_quotation():
     return jsonify(_quotation_json(quotation, detailed=True)), 201
 
 
-# ── VIEW ──────────────────────────────────────────────
+# â”€â”€ VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>')
 @login_required
@@ -346,9 +355,9 @@ def view_quotation(id):
         f"Dear {quotation.client.name},\n\n"
         f"Please find below the quotation summary ({quotation.quotation_number}) from {profile.name}.\n\n"
         f"Quotation Summary:\n"
-        f"• Total Amount: ₹{'{:,.2f}'.format(quotation.total_amount)}\n"
-        f"• Estimated Timeline: {quotation.estimated_timeline or 'N/A'}\n"
-        f"• Valid Until: {valid_date_str}\n\n"
+        f"â€¢ Total Amount: â‚¹{'{:,.2f}'.format(quotation.total_amount)}\n"
+        f"â€¢ Estimated Timeline: {quotation.estimated_timeline or 'N/A'}\n"
+        f"â€¢ Valid Until: {valid_date_str}\n\n"
         f"Kindly review the details. Please let us know if you require any adjustments.\n\n"
         f"Thank you!\n\n"
         f"Best regards,\n"
@@ -367,20 +376,30 @@ def view_quotation(id):
 
     return jsonify({
         **_quotation_json(quotation, detailed=True),
-        'logo_base64': get_pdf_assets()['logo_base64'],
+        'logo_base64': profile.logo_image or '',
+        'logo_mime': profile.logo_mime or '',
         'whatsapp_url': whatsapp_url,
         'email_url': email_url,
+        # The same block view_invoice returns. It used to be five keys, which
+        # forced the print sheet to fetch /settings/ just to reach the bank
+        # details; identical shapes mean identical output by construction.
         'profile': {
             'name': profile.name,
             'tagline': profile.tagline,
             'email': profile.email,
             'phone': profile.phone,
             'address': profile.address,
+            'bank_name': profile.bank_name,
+            'bank_account': profile.bank_account,
+            'bank_ifsc': profile.bank_ifsc,
+            'bank_branch': profile.bank_branch,
+            'upi_id': profile.upi_id,
+            'gst_number': profile.gst_number,
         },
     })
 
 
-# ── EDIT ──────────────────────────────────────────────
+# â”€â”€ EDIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>', methods=['PUT'])
 @login_required
@@ -467,7 +486,7 @@ def edit_quotation(id):
     return jsonify(_quotation_json(quotation, detailed=True))
 
 
-# ── STATUS ────────────────────────────────────────────
+# â”€â”€ STATUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>/status', methods=['POST'])
 @login_required
@@ -483,7 +502,7 @@ def update_status(id):
     return jsonify({'error': 'Invalid status operation.'}), 400
 
 
-# ── DUPLICATE ─────────────────────────────────────────
+# â”€â”€ DUPLICATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>/duplicate', methods=['POST'])
 @login_required
@@ -543,7 +562,7 @@ def duplicate_quotation(id):
     return jsonify(_quotation_json(new_quote, detailed=True)), 201
 
 
-# ── CONVERT TO INVOICE ────────────────────────────────
+# â”€â”€ CONVERT TO INVOICE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>/convert', methods=['POST'])
 @login_required
@@ -600,7 +619,28 @@ def convert_to_invoice(id):
     return jsonify({'invoice_id': invoice.id, 'invoice_number': invoice.invoice_number}), 201
 
 
-# ── ARCHIVE ───────────────────────────────────────────
+# â”€â”€ TEMPLATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@quotations_bp.route('/<int:id>/pdf-theme', methods=['PUT'])
+@login_required
+def update_pdf_theme(id):
+    """Save the chosen template on one quotation.
+
+    Its own endpoint rather than a field on PUT /<id>, because that handler
+    rebuilds the line items and recomputes the status - a presentation change
+    must not be able to rewrite the financial record.
+    """
+    quotation = Quotation.query.get_or_404(id)
+    data = request.get_json(silent=True) or request.form
+    try:
+        quotation.pdf_theme = validate_pdf_theme('quotation', data.get('pdf_theme'))
+    except ValueError as e:
+        return validation_error_response(str(e))
+    db.session.commit()
+    return jsonify(_quotation_json(quotation, detailed=True))
+
+
+# â”€â”€ ARCHIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @quotations_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
@@ -618,44 +658,3 @@ def unarchive_quotation(id):
     quotation.is_archived = False
     db.session.commit()
     return jsonify({'message': f'Quotation {quotation.quotation_number} restored.'})
-
-
-# ── PDF ───────────────────────────────────────────────
-
-@quotations_bp.route('/<int:id>/pdf')
-@login_required
-def download_pdf(id):
-    quotation = Quotation.query.get_or_404(id)
-    profile = CompanyProfile.get_profile()
-
-    # ?theme= is a one-time override for this download and is never written
-    # back to the row; then the quotation's own choice, then the company default.
-    template_path = resolve_path(
-        'quotation',
-        request.args.get('theme'),
-        quotation.pdf_theme,
-        profile.quotation_pdf_theme,
-    )
-
-    html_string = render_template(
-        template_path,
-        quotation=quotation,
-        profile=profile,
-        **get_pdf_assets(),
-    )
-
-    try:
-        from xhtml2pdf import pisa
-        result_buf = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.StringIO(html_string), dest=result_buf)
-        if pisa_status.err:
-            return jsonify({'error': 'PDF generation encountered errors.'}), 500
-        pdf_bytes = result_buf.getvalue()
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = (
-            f'attachment; filename={quotation.quotation_number}.pdf'
-        )
-        return response
-    except Exception as e:
-        return jsonify({'error': f'PDF generation failed: {e}'}), 500

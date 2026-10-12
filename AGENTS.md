@@ -37,9 +37,10 @@ git remote add demo https://github.com/Uzair-hp/ATS_QIS_Demo.git
 
 - Run both suites. A change is not done until they pass.
   ```bash
-  cd backend  && pytest -q      # 71 tests
-  cd frontend && npm test       # 53 tests
+  cd backend  && pytest -q      # 74 tests
+  cd frontend && npm test       # 135 tests
   cd frontend && npm run build
+  cd frontend && node tools/verify-templates.mjs   # 19 live browser checks
   ```
 - `backend/requirements.txt` is runtime-only. Test deps are in
   `requirements-dev.txt`, so a production host never installs pytest.
@@ -65,67 +66,66 @@ Production hosts use `backend/wsgi.py` instead — see `deploy/README.md`.
 
 ## 4. Architecture you must not break
 
-- `backend/` is a **JSON-only** REST API. No page templates. The only templates
-  it holds are the PDF templates under `backend/templates/`.
+- `backend/` is a **JSON-only** REST API. It holds **no page templates**.
 - `frontend/` is the React 18 + Vite SPA. Router basename is `/app/`, so an
-  internal link is `to="/quotations/1"` — **not** `to="/app/quotations/1"`.
+  internal link is `to="/quotations/1"` - **not** `to="/app/quotations/1"`.
   Getting this wrong produces a `/app/app/...` URL.
 - `company_profile` is a singleton row. `CompanyProfile.get_profile()` is the
   only way to read it.
 - State-changing requests need the CSRF token from `GET /api/auth/me`, sent as
   `X-CSRFToken`. `frontend/src/api/client.js` does this automatically.
 
-## 5. There are two print pipelines — this is the trap
+## 5. There is ONE document renderer - this is the rule
 
-| | Browser print sheet | Server-rendered PDF |
-|---|---|---|
-| Trigger | "Print / Save as PDF" | "Download PDF" |
-| Layout | `frontend/src/styles/print.css` + `components/print/*` | `templates/_pdf_base.html` + `_pdf_style.html` |
-| Renderer | Chrome via `react-to-print` | `xhtml2pdf` |
-| Entry | `/quotations/:id/print`, `/invoices/:id/print` | `GET .../pdf` |
+Invoice and quotation documents are rendered by React components and printed by
+the browser. There is no server-side PDF engine and no second copy of any
+layout.
 
-They are **not** kept in sync automatically. **Changing one means checking the
-other.** If you touch the quotation sheet's layout, check whether the same
-information is still correct in both PDF templates, and vice versa.
+```
+pdf_theme key -> frontend/src/templates/registry.js -> layout component
+                                                          -> .doc-sheet -> print
+```
 
-Totals are computed twice — `computeTotals` in
-`frontend/src/lib/quotation.js` and `_calc_totals` in the backend. They must
-agree to the paisa. `computeTotals` prefers the API's stored totals; the tests
-in `backend/tests/test_calc_totals.py` and
+The **same** component renders the create/edit live preview, the print view, and
+what Print / Save as PDF produces. Adding or changing a layout lands everywhere
+at once. `frontend/src/templates/__tests__/registry.test.js` reads
+`backend/pdf_themes.py` and fails if the backend offers a key the frontend
+cannot render.
+
+Do not reintroduce a second renderer. Two existed once (a React sheet and a set
+of Jinja/xhtml2pdf templates) plus a folder of PNGs pretending to be previews,
+and the three surfaces silently disagreed - the template dropdown only rewrote a
+`?theme=` query string, so the sheet on screen never moved. Two backend tests
+guard this: `test_server_side_pdf_endpoint_no_longer_exists` and
+`test_theme_preview_image_endpoint_is_gone`.
+
+| File | Role |
+|---|---|
+| `frontend/src/lib/docData.js` | **the** data contract; one shape for both document types |
+| `frontend/src/templates/registry.js` | key -> component. The only place that mapping exists |
+| `frontend/src/templates/layouts.jsx` | five layout archetypes |
+| `frontend/src/templates/parts.jsx` | shared blocks (items table, totals, signature, footer) |
+| `frontend/src/styles/print.css` | the single stylesheet; palettes keyed off `data-template` |
+| `backend/pdf_themes.py` | which keys the API accepts |
+
+Totals are computed twice - `computeTotals` in `frontend/src/lib/quotation.js`
+and `_calc_totals` in the backend. They must agree to the paisa.
+`computeTotals` prefers the API's stored totals; the tests in
+`backend/tests/test_calc_totals.py` and
 `frontend/src/lib/__tests__/quotation.test.js` pin both sides. If you change
 one, change both, and update the tests.
 
-## 6. xhtml2pdf fails silently — render and look at the output
+## 6. Never hard-code a layout height
 
-This is the most expensive trap in the repo. Every one of these produces a PDF
-that reports **success** while being quietly wrong:
+The print stylesheet used to be measured from a single 300 dpi sample scan and
+carried fixed mm row heights. That produced a ~48mm blank gap under a one-item
+items table, a second page for an ordinary document, and `white-space: nowrap`
+text overflowing a 21mm cell.
 
-| Input | Result |
-|---|---|
-| `<img src="data:image/svg+xml;base64,…">` | dropped, no error |
-| inline `<svg>` | dropped, no error |
-| CSS `linear-gradient` | ignored |
-| `<style>` inside an `{% import %}`ed template | dropped, no error |
-| a class on a `<tr>` | ignored |
-| a second class on a `<td>` | ignored |
-| a zero-height `<div>` with only `border-bottom` | collapses to nothing |
-
-Consequences, which look like arbitrary choices otherwise:
-
-- Decorative artwork is **pre-rendered PNG** (`swoosh.png`, `footer.png`,
-  `watermark.png`), generated by `backend/tools/render_assets.py`. Run
-  `python -m tools.render_assets` from `backend/` after changing any of them.
-- The PDF stylesheet is `_pdf_style.html` and is `{% include %}`d, never
-  imported.
-- Anything that must not vanish is styled **inline** (see `grand_cell()`).
-
-**Render the PDF and actually look at it.** A passing test does not prove the
-output is right — that is precisely how the missing GST line shipped before.
-
-```powershell
-# regenerate, fetch a PDF, rasterise it, then view the PNG
-python -m tools.render_assets
-```
+Every block is now sized by its own content. **If you find yourself adding a
+height, a `min-height` or a `nowrap` to lay something out, that is the bug.**
+Look at the result in a browser instead: `node tools/verify-templates.mjs`
+drives the real app and writes screenshots to `.render/verify/`.
 
 ## 7. Never bundle company-specific defaults
 
@@ -150,7 +150,8 @@ value is absent, render the slot empty.
 - `deploy/README.md` — PythonAnywhere deployment, free-tier limits, troubleshooting.
 - `work_to_be_done.md` — what is done, what is open. The open items are all
   visual QA in §3.7.
-- `FORTIS HOSPITAL_page-0001.jpg` — the reference design the print sheet is
-  measured against at 300 dpi. Do not "tidy" numbers in `print.css` or
-  `geometry.js`; they are the spec.
+- `FORTIS HOSPITAL_page-0001.jpg` — the reference invoice the layouts descend
+  from. It is inspiration, not a measurement spec: the old print sheet was built
+  by copying its geometry millimetre-for-millimetre, which is exactly the
+  hard-coded-heights trap in §6. Do not reintroduce numbers read off it.
 - `QIS_USER_GUIDE.md` — end-user documentation.

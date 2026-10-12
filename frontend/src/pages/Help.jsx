@@ -74,11 +74,13 @@ const SECTIONS = [
     icon: 'bi-file-earmark-pdf-fill',
     title: 'PDF & printing',
     items: [
-      { q: 'How do I download the PDF?', a: 'Every invoice and quotation has a Download PDF button. The PDF is generated on the server from your company settings, the client details and the line items.' },
+      { q: 'How do I download the PDF?', a: 'Every invoice and quotation has a Download PDF button. It opens the print view, where you can pick a template and then use your browser Save as PDF option. What you see there is exactly what gets saved.' },
+      { q: 'How do I change the template?', a: 'Pick it on the create/edit form, or on the print view. Both write to the same place, and the print view always opens on the template saved with that document. To change the default for all new documents, set it in Printing Settings.' },
+      { q: 'The preview and the printed page look different.', a: 'They cannot - there is only one renderer. If they ever look different, that is a bug worth reporting.' },
+      { q: 'The Bank Details block is empty.', a: 'The company has no bank details recorded. Blank fields are left off the document entirely - open Company Settings and fill in the bank, IFSC, MSME and UPI values.' },
       { q: 'The UPI QR code is not showing.', a: 'The QR is only printed when a UPI ID is saved in Company Settings and the balance due is above zero. On a quotation there is no QR because nothing is being asked for yet.' },
       { q: 'My stamp image is not on the PDF.', a: 'Check that a stamp was uploaded in Company Settings and that it was not marked for removal. The stamp sits above the "Authorized Signatory" line.' },
       { q: 'How do I share a bill on WhatsApp?', a: 'The invoice page builds the message for you — it includes the invoice number, total, balance due and the due date. The Share on WhatsApp button opens it with the client number already filled.' },
-      { q: 'The PDF is missing the amount in words.', a: 'Only the newer templates include it. Download the PDF from the invoice page and check which template is in use.' },
     ],
   },
   {

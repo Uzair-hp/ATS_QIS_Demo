@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import Layout from '../components/Layout'
 import TemplateSelect from '../components/TemplateSelect'
-import ThemePreview from '../components/ThemePreview'
-import { groupThemes, defaultFor, findTheme } from '../lib/pdfThemes'
+import TemplatePreview from '../components/TemplatePreview'
+import { defaultFor } from '../lib/pdfThemes'
+import { buildDocData } from '../lib/docData'
 import { useToast } from '../context/ToastContext'
 
 const blankItem = { name: '', description: '', hsn_code: '', quantity: 1, rate: 0 }
@@ -15,6 +16,10 @@ export default function InvoiceForm() {
   const { push } = useToast()
 
   const [meta, setMeta] = useState({ clients: [], services: [], company: {} })
+  // The company profile the template renders. Without it the preview showed an
+  // empty Bank Details block, because the invoice endpoint's inline `profile`
+  // key carries no bank fields.
+  const [settings, setSettings] = useState({})
   const [clientId, setClientId] = useState('')
   const [dueDays, setDueDays] = useState(15)
   const [paymentMode, setPaymentMode] = useState('')
@@ -29,15 +34,21 @@ export default function InvoiceForm() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ ...blankItem }])
   const [error, setError] = useState('')
+  // The number this document already carries, so the preview in edit mode shows
+  // what will actually be printed rather than a placeholder.
+  const [docNumber, setDocNumber] = useState('')
   // '' means "follow the company default", so a new invoice starts on whatever
   // Printing Settings says and the stored value stays NULL until one is picked.
   const [pdfTheme, setPdfTheme] = useState('')
   // The catalogue TemplateSelect already fetched, reused to show the preview of
   // whatever is selected without a second request.
   const [themes, setThemes] = useState(null)
-  const selectedTheme = useMemo(
-    () => findTheme(groupThemes(themes, 'invoice'), pdfTheme || defaultFor(themes, 'invoice')),
-    [themes, pdfTheme])
+
+  const activeTheme = pdfTheme || defaultFor(themes, 'invoice')
+
+  useEffect(() => {
+    api.get('/settings/').then((res) => setSettings(res.data || {}))
+  }, [])
 
   useEffect(() => {
     api.get('/invoices/meta').then((res) => {
@@ -54,6 +65,7 @@ export default function InvoiceForm() {
     if (id) {
       api.get(`/invoices/${id}`).then((res) => {
         const inv = res.data
+        setDocNumber(inv.invoice_number || '')
         setClientId(String(inv.client_id))
         setPaymentMode(inv.payment_mode || '')
         setSubject(inv.subject || '')
@@ -85,6 +97,45 @@ export default function InvoiceForm() {
   const gstAmount = net * (parseFloat(gstPercent) || 0) / 100
   const total = net + gstAmount
   const balance = Math.max(total - (parseFloat(advanceAmount) || 0), 0)
+
+  // Pinned once so the preview's dates do not drift while the form is being
+  // typed in, and so nothing impure runs on every render.
+  const [now] = useState(() => new Date())
+
+  // The document as currently typed, through the same builder and template the
+  // saved document will use.
+  const previewData = useMemo(() => {
+    const client = meta.clients.find((c) => String(c.id) === String(clientId))
+    const due = new Date(now.getTime() + (Number(dueDays) || 0) * 86400000)
+    return buildDocData('invoice', {
+      invoice_number: docNumber || 'Draft invoice',
+      client: client || {},
+      date_created: now.toISOString(),
+      due_date: due.toISOString(),
+      payment_mode: paymentMode,
+      subject,
+      voucher_number: voucherNumber,
+      payment_terms: paymentTerms,
+      delivery_address: deliveryAddress,
+      notes,
+      discount,
+      discount_type: discountType,
+      gst_percent: gstPercent,
+      advance_amount: advanceAmount,
+      status: 'Pending',
+      items: items
+        .filter((it) => (it.name || '').trim())
+        .map((it) => ({
+          service_name: it.name,
+          description: it.description,
+          hsn_code: it.hsn_code,
+          quantity: Number(it.quantity) || 0,
+          rate: Number(it.rate) || 0,
+        })),
+    }, settings)
+  }, [id, docNumber, meta.clients, clientId, dueDays, paymentMode, subject, voucherNumber,
+      paymentTerms, deliveryAddress, notes, discount, discountType, gstPercent,
+      advanceAmount, items, settings, now])
 
   const updateItem = (i, field, value) => {
     const next = [...items]
@@ -202,12 +253,11 @@ export default function InvoiceForm() {
               <div className="row g-3">
                 <div className="col-md-6"><TemplateSelect docType="invoice" id="pdf_theme" value={pdfTheme} onChange={setPdfTheme} onLoaded={setThemes} /></div>
                 <div className="col-md-6">
-                  <ThemePreview
-                    doc="invoices"
-                    theme={selectedTheme}
-                    title="Sample preview"
-                    paged
-                    showEmpty
+                  <TemplatePreview
+                    docType="invoice"
+                    theme={activeTheme}
+                    data={previewData}
+                    title="Live preview"
                   />
                 </div>
               </div>

@@ -1,653 +1,819 @@
 /* ==========================================================================
-   ATS quotation sheet - A4 print layout
+   ATS document templates
 
-   Every number below was measured from FORTIS HOSPITAL_page-0001.jpg at
-   300 dpi (11.845 px/mm). Do not "tidy" them; they are the spec.
+   Shared stylesheet for every template in src/templates. One page geometry,
+   one type scale, one colour system; each template differs by its
+   `data-template` palette rather than by rewriting these rules.
 
-   The measured y offsets are expressed as margin-tops on a normally-flowing
-   sheet. Only the items section may grow: its rows carry `break-inside: avoid`
-   and its <thead> repeats, so a quotation with many line items, or any
-   quotation carrying a discount (two extra totals rows), paginates instead of
-   clipping. Everything else is an atomic block - see the `break-inside: avoid`
-   group in the print rules at the foot of this file.
+   The previous stylesheet was a single hardcoded layout measured from one
+   300 dpi sample scan. It declared fixed mm row heights, a `min-height` floor
+   on the items block, and `white-space: nowrap` in a 21mm column, which is
+   why a one-item quotation left a 48mm gap and why "Authorized Signatory"
+   overflowed its cell. Nothing below sets a height: every block is sized by
+   its own content, so the items table grows and the totals follow it.
 
-   The vertical budget for the standard case totals ~295.7mm against A4's
-   297mm, so the slack is roughly 1mm. Adding rows will therefore reach a
-   second page; that page repeats the banner and footer via `position: fixed`.
-
-   Type sizes were fitted by rendering each measured string with PIL against
-   the real Calibri / Cambria / Arial files and matching the ink width
-   (see tools/fitfonts.py and tools/fitratio.py).
+   All units are px at a 1:1 print scale, declared inside an A4 page box.
    ========================================================================== */
 
 :root {
-  --font-sans: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
-  --font-serif: Cambria, Constantia, Georgia, 'Times New Roman', serif;
-  --font-num: 'Times New Roman', Cambria, Georgia, serif;
-  --font-heavy: 'Arial Narrow', 'Tw Cen MT Cond', Arial, sans-serif;
-  --font-cond: 'Arial Narrow', 'Roboto Condensed', Calibri, sans-serif;
-
-  --rule: #000;
-  --rule-w: 1px;
-  /* a target "double rule" is 3px line / 3px gap / 3px line at 300 dpi,
-     i.e. 1px / 1px / 1px in CSS pixels. Chrome renders `border-style: double`
-     as solid at these widths, so the second line is drawn with a pseudo
-     element 2px below the cell's padding box instead. */
-  --rule-gap: 3px;
-
-  /* measured page geometry, mm */
-  --content-left: 8.696mm;
-  --content-w: 195.443mm;
-  --sig-left: 7.092mm;
-  --sig-w: 197.047mm;
+  --doc-ink: #111827;
+  --doc-ink-soft: #4b5563;
+  --doc-ink-muted: #6b7280;
+  --doc-rule: #c9d6e2;
+  --doc-rule-strong: #111827;
+  --doc-panel: #eef4fb;
+  --doc-panel-ink: #0b4f8a;
+  --doc-accent: #15578f;
+  --doc-accent-ink: #ffffff;
+  --doc-accent-soft: #eaf4fb;
+  --doc-band: #15578f;
+  --doc-total-fill: #15578f;
+  --doc-font: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
+  --doc-font-num: 'Times New Roman', Cambria, Georgia, serif;
+  --doc-font-title: Georgia, 'Times New Roman', serif;
+  --doc-fs: 9.5pt;
+  --doc-fs-sm: 8.2pt;
+  --doc-fs-title: 16pt;
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ---- page ---------------------------------------------------------------- */
 
-.qp-sheet-wrap {
+.doc-sheet-wrap {
   background: #5b6470;
   padding: 8mm 0;
   display: flex;
   justify-content: center;
 }
 
-.qp-sheet {
-  position: relative;
+.doc-sheet {
   width: 210mm;
   min-height: 297mm;
-  height: auto;
-  background: #fff;
-  overflow: visible;
+  padding: 12mm 12mm 10mm;
+  background: #ffffff;
+  color: var(--doc-ink);
+  font-family: var(--doc-font);
+  font-size: var(--doc-fs);
+  line-height: 1.4;
+  box-sizing: border-box;
   display: flow-root;
-  font-family: var(--font-sans);
-  font-weight: 700;
-  color: #000;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-/* ---- page watermark -------------------------------------------------- */
-/* The target watermark is a large gear on the left plus "ATS" on the right,
-   showing faintly through the whole body. Placeholder artwork. The URL is
-   supplied as the --qp-watermark custom property by QuotationPrint, so Vite
-   resolves it and it respects base '/app/'. */
-.qp-watermark {
+.doc-watermark {
   position: absolute;
   left: 0;
-  top: 76mm;
+  top: 60mm;
   width: 210mm;
   height: 152mm;
-  background-image: var(--qp-watermark, none);
+  background-image: var(--doc-watermark, none);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
-  opacity: 0.038;
+  opacity: 0.04;
   pointer-events: none;
+  z-index: 0;
 }
 
-/* ---- header banner --------------------------------------------------- */
-.qp-banner {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 210mm;
-  height: 17.139mm;
-}
-
-.qp-banner-art {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 210mm;
-  height: 34.4mm;
-}
-
-.qp-logo-card {
-  position: absolute;
-  left: 5.73mm;
-  top: 9.87mm;
-  width: 58.9mm;
-  height: 23.4mm;
-  background: #fff;
-  border-radius: 2.2mm;
-}
-
-/* The logo is placed by its INK box: the target's ink occupies
-   x 60..789 px, y 100..319 px (61.56 x 18.58 mm). The PNG's own ink starts
-   3.94 mm from its left edge and 0.82 mm from its top, so the <img> box is
-   offset back by those amounts. Width and height are both stated because
-   the target's logo is drawn wider than the PNG's natural aspect - the
-   supplied asset is a stand-in and can be swapped without touching this. */
-.qp-logo-card img {
-  position: absolute;
-  left: 0.2mm; /* ink at x 135 px */
-  top: 2.33mm; /* ink at y 154 px */
-  width: 56.1mm;
-  height: 20.48mm;
-  display: block;
-}
-
-/* ---- absolutely positioned sections ---------------------------------- */
-.qp-sec {
+.doc-sheet > *:not(.doc-watermark) {
   position: relative;
-  margin-left: var(--content-left);
-  width: var(--content-w);
+  z-index: 1;
 }
 
-.qp-sec-info {
-  margin-top: 48.628mm; /* y 576 px */
-}
-.qp-sec-items {
-  margin-top: 0.509mm; /* 81.89 - 48.628 - 32.753 */
-  /* A floor, not a cap: it holds the measured gap for a short quotation and the
-     section grows past it when the item list is longer. */
-  min-height: 56.74mm; /* 138.63 - 81.89 */
-}
-.qp-sec-totals {
-  /* follows the items section naturally in flow */
-}
-.qp-sec-sig {
-  margin-top: 0.5mm; /* 195.44 - 194.94 */
-  margin-left: var(--sig-left);
-  width: var(--sig-w);
-  /* Holds the absolutely-positioned signature lines, which reach ~80.4mm down
-     the block (.qp-siglines at top 65.9mm). 81mm is therefore the floor that
-     keeps the footer clear of them - do not shrink it without re-measuring. */
-  min-height: 81mm;
+/* ---- palettes ------------------------------------------------------------ */
+
+.doc-t-hero {
+  --doc-accent: #1e3a8a;
+  --doc-accent-soft: #eff6ff;
+  --doc-panel-ink: #1e3a8a;
+  --doc-band: #1e3a8a;
+  --doc-total-fill: #2563eb;
+  --doc-rule: #dbe4ee;
 }
 
-/* ---- title ----------------------------------------------------------- */
-.qp-title-area {
-  position: absolute;
-  left: var(--content-left);
-  top: 17.139mm; /* y 203 px */
-  width: var(--content-w);
-  height: 31.49mm;
+.doc-t-minimal {
+  --doc-ink: #1a1a1a;
+  --doc-rule: #e6e6e6;
+  --doc-rule-strong: #1a1a1a;
+  --doc-panel: transparent;
+  --doc-panel-ink: #6b7280;
+  --doc-accent: #111111;
+  --doc-accent-soft: transparent;
+  --doc-total-fill: #ffffff;
+  --doc-fs-title: 22pt;
+}
+
+.doc-t-compact {
+  --doc-fs: 8.2pt;
+  --doc-accent: #007acc;
+  --doc-accent-soft: #e6f4ff;
+  --doc-panel-ink: #007acc;
+  --doc-band: #007acc;
+  --doc-total-fill: #007acc;
+  --doc-fs-title: 13pt;
+}
+
+.doc-t-letterhead {
+  --doc-accent: #007acc;
+  --doc-accent-soft: #eaf4fb;
+  --doc-panel-ink: #007acc;
+  --doc-band: #007acc;
+  --doc-total-fill: #007acc;
+}
+
+.doc-t-classic.doc-t-classic {
+  --doc-accent: #15578f;
+}
+
+/* ---- header -------------------------------------------------------------- */
+
+.doc-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  /* the target centres the heading 12.5 mm right of the content centre */
-  padding-left: 22.1mm;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-bottom: 5mm;
 }
 
-.qp-title {
-  margin: 0;
-  transform: translateY(11.55mm);
-  font-family: var(--font-serif);
-  font-size: 17.5pt;
+.doc-header-left {
+  min-width: 0;
+}
+
+.doc-tagline {
+  color: var(--doc-ink-muted);
+  font-size: var(--doc-fs-sm);
+  margin-top: 1mm;
+}
+
+.doc-header-right {
+  text-align: right;
+  min-width: 0;
+}
+
+.doc-heading {
+  font-family: var(--doc-font-title);
+  font-size: var(--doc-fs-title);
   font-weight: 700;
-  line-height: 1;
-  color: #00acec;
-  white-space: nowrap;
+  letter-spacing: 2px;
+  color: var(--doc-accent);
+  line-height: 1.1;
 }
 
-/* ---- shared table chrome --------------------------------------------- */
-.qp-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  border: var(--rule-w) solid var(--rule);
-}
-
-.qp-table td,
-.qp-table th {
-  position: relative;
-  border: var(--rule-w) solid var(--rule);
-  padding: 0 1.2mm;
-  vertical-align: top;
+.doc-number {
+  font-family: var(--doc-font-num);
   font-size: 11pt;
-  line-height: 10.2pt;
-  overflow-wrap: break-word;
-}
-
-.qp-table th {
   font-weight: 700;
-  text-align: center;
-  vertical-align: middle;
-  padding: 0.3mm 0.5mm;
+  margin-top: 1mm;
 }
 
-/* The double rule that closes table A is drawn by table B's top edge, so both
-   lines live in one place and stay aligned regardless of table A's height. */
-.qp-dbl-t > td::before,
-.qp-dbl-t > th::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(-1 * var(--rule-gap));
-  height: var(--rule-w);
-  background: var(--rule);
-}
-
-/* second line of a double rule, 1 CSS px below the 1px border */
-.qp-dbl > td::after,
-.qp-dbl > th::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--rule-gap));
-  height: var(--rule-w);
-  background: var(--rule);
-}
-
-/* ---- table A: party / meta ------------------------------------------- */
-.qp-info {
-  border-bottom: none;
-}
-.qp-info tr:nth-child(5) > td {
-  border-bottom: none;
-}
-
-.qp-info tr:nth-child(1) {
-  height: 8.696mm;
-}
-.qp-info tr:nth-child(2),
-.qp-info tr:nth-child(3) {
-  height: 4.474mm;
-}
-.qp-info tr:nth-child(4) {
-  height: 10.553mm;
-}
-/* ends 6 px (0.51 mm) above the items table's top edge, so the two 1 px
-   borders read as the target's double rule with a 3 px gap */
-.qp-info tr:nth-child(5) {
-  height: 4.556mm;
-}
-
-.qp-to {
-  padding: 1.15mm 1.2mm 0.15mm 2.05mm !important;
-  white-space: nowrap;
-}
-
-.qp-invoice-label {
-  font-family: var(--font-serif);
-  font-weight: 700;
-  font-size: 13pt !important;
-  white-space: nowrap;
-  padding-top: 0.35mm !important;
-}
-
-.qp-date {
-  text-align: left;
-  padding: 0.1mm 1.2mm 0 6.6mm !important;
-}
-
-.qp-tot-label,
-.qp-tot-value,
-.qp-grand-value {
-  position: relative;
-}
-
-.qp-meta {
-  text-align: left;
-  vertical-align: middle !important;
-  padding: 0 1.2mm 0 7.5mm !important;
-  top: -0.34mm;
-}
-
-/* the delivery row sits further left than the rows above it */
-.qp-meta:has(.qp-mark) {
-  padding-left: 4.2mm !important;
-  top: -0.68mm;
-}
-
-.qp-kindattn {
-  text-align: left;
-  vertical-align: middle !important;
-  padding: 0 1.2mm 0 6.8mm !important;
-  top: -0.25mm;
-  font-size: 11.4pt !important;
-  line-height: 13.5pt !important;
-}
-
-.qp-gstno {
-  text-align: center;
-  vertical-align: middle !important;
-  font-size: 11.4pt !important;
-  line-height: 13.5pt !important;
-  white-space: nowrap;
-  left: -3.3mm;
-  top: -0.76mm;
-}
-
-.qp-serif {
-  font-family: var(--font-serif);
-}
-
-.qp-mark {
-  background: #ffff00;
-  color: #000;
-  padding: 0;
-}
-
-/* ---- table B: items --------------------------------------------------- */
-.qp-items thead tr {
-  height: 10.046mm; /* 119 px: 970 -> 1089 */
-}
-
-/* in the target every header label sits right of its column centre */
-.qp-items th {
-  padding-right: 0 !important;
-}
-.qp-items th:nth-child(1) { padding-left: 9.7mm !important; }
-.qp-items th:nth-child(2) { padding-left: 2.5mm !important; }
-.qp-items th:nth-child(3) { padding-left: 7.2mm !important; }
-.qp-items th:nth-child(4) { padding-left: 8.1mm !important; }
-.qp-items th:nth-child(5) { padding-left: 7.7mm !important; }
-.qp-items th:nth-child(6) { padding-left: 8.8mm !important; }
-.qp-items td:nth-child(1) {
-  text-align: left;
-  padding-left: 2.5mm !important;
-  padding-right: 1.2mm !important;
-}
-
-.qp-items thead th {
-  font-size: 12.2pt;
-  line-height: 12.7pt;
-}
-
-
-/* the target's header text block sits 2 mm above the cell's centre */
-.qp-hdr {
-  display: inline-block;
-  transform: translateY(-2mm);
-}
-
-.qp-items thead tr > th {
-  border-top: var(--rule-w) solid var(--rule);
-}
-
-.qp-items tbody tr {
-  height: 8.04mm;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.qp-items tbody tr:last-child > td {
-  border-bottom: none;
-}
-.qp-items {
-  border-bottom: none;
-}
-
-.qp-items tbody td {
-  padding: 0.72mm 2.4mm;
-  font-size: 13.6pt;
-  /* 16.9 pt is the best single compromise: the source document uses ~17.25 pt
-     for item 1 but ~12.4 pt for item 2, which no content-derived value can
-     reproduce. This keeps the whole items table exactly 672 px / 56.73 mm tall
-     and lands item 1's rule within 0.25 mm. */
-  line-height: 16.9pt;
-}
-
-.qp-particular {
-  text-align: justify;
-  /* The mapper joins the item name and its description with a newline. Without
-     this the break collapses to a space and the two run together on one line. */
-  white-space: pre-line;
-}
-
-.qp-num {
-  text-align: center;
-  font-family: var(--font-num);
-  font-weight: 700;
-  font-size: 10.5pt !important;
-  line-height: 16.9pt !important;
-  top: -0.6mm;
-}
-
-/* the serial column is sans-serif in the target, unlike the other numbers */
-.qp-sr {
-  font-family: var(--font-sans);
-  font-size: 11pt !important;
-  line-height: 16.9pt !important;
-}
-
-/* ---- table C: totals / company --------------------------------------- */
-/* Row geometry is keyed off class names, not :nth-child. A quotation carrying
-   a discount renders SUBTOTAL / DISCOUNT / NET / GST instead of SUBTOTAL / GST,
-   and positional rules must land on the intended row either way. */
-.qp-row-subtotal {
-  height: 5.572mm;
-}
-/* The two extra rows a discount introduces. Height is left to the content so
-   the block grows rather than pushing the sheet past one A4 page. */
-.qp-row-discount,
-.qp-row-net {
-  height: auto;
-}
-/* The last row of the block: taller, because the target gives the GST row more
-   vertical room and nudges its figure up. */
-.qp-row-gst {
-  height: 10.553mm;
-}
-
-.qp-tot-label,
-.qp-tot-value {
-  text-align: center !important;
-  vertical-align: middle !important;
-  white-space: nowrap;
-  font-size: 11.6pt !important;
-  line-height: 14.35pt !important;
-  padding: 0 0.4mm !important;
-}
-
-.qp-tot-value {
-  font-family: var(--font-heavy);
-  font-size: 13.8pt !important;
-}
-
-.qp-row-subtotal .qp-tot-value { top: 0.34mm; }
-.qp-row-subtotal .qp-tot-label {
-  top: 0.34mm;
-  font-size: 12.5pt !important;
-}
-.qp-row-gst .qp-tot-value { top: -1.77mm; }
-.qp-row-gst .qp-tot-label { left: -1.5mm; }
-
-.qp-totals-cont {
-  border-top: none;
-  margin-top: -1px;
-}
-.qp-totals-cont tr:nth-child(1) {
-  height: 5.066mm;
-}
-.qp-totals-cont tr:nth-child(2) {
-  height: 35.119mm;
-}
-.qp-totals-cont tr:nth-child(2) > td {
-  border-bottom: var(--rule-w) solid var(--rule);
-}
-
-.qp-company-gstin {
-  font-family: var(--font-cond);
-  font-size: 12.3pt !important;
-  line-height: 12pt !important;
-  padding: 0.35mm 1.2mm 0 9.5mm !important;
-  white-space: nowrap;
-}
-
-.qp-company {
-  font-size: 12.87pt !important;
-  line-height: 13.9pt !important;
-  padding: 0.15mm 1.2mm 0 2.9mm !important;
-}
-
-.qp-grand-label,
-.qp-grand-value {
-  vertical-align: middle !important;
-  text-align: center !important;
-  font-size: 13.8pt !important;
-  line-height: 14.9pt !important;
-  top: 1mm;
-}
-.qp-grand-value {
-  font-family: var(--font-heavy);
-  font-size: 13.8pt !important;
-  white-space: nowrap;
-  top: 1.35mm;
-}
-
-/* ---- table D: signature ---------------------------------------------- */
-.qp-sigbox {
-  width: 100%;
-}
-
-.qp-sigbox tr {
-  height: 66.1mm;
-}
-
-.qp-sigcell {
-  text-align: center;
-  padding: 0.8mm 0.4mm 0 !important;
-  position: relative;
-}
-
-.qp-for {
-  white-space: nowrap;
-  font-size: 12.2pt;
-  line-height: 12.5pt;
-  margin-top: 3.6mm;
-}
-
-.qp-maroon {
-  color: #5f1f1f;
-}
-
-.qp-stamp {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 14.12mm;
-  display: flex;
-  justify-content: center;
-}
-.qp-stamp img {
-  width: 40.3mm;
-  height: 32.4mm;
-  object-fit: contain;
-  opacity: 0.85;
-}
-
-.qp-signatory {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 45.8mm;
-  white-space: nowrap;
-  font-size: 12.2pt;
-  padding-left: 4.2mm;
-  line-height: 12.5pt;
-}
-
-/* ---- signature lines below the box ----------------------------------- */
-/* offsets are relative to .qp-sec-sig (top 194.85 mm) */
-.qp-siglines {
-  position: absolute;
-  left: -5.49mm; /* x 19 px from the page edge */
-  top: 65.9mm;
-  width: 60mm;
-  font-family: var(--font-cond);
-  font-size: 9.2pt;
-}
-
-.qp-sigline {
-  line-height: 1;
-}
-
-.qp-sigline i {
-  display: block;
+.doc-gstin {
+  font-size: var(--doc-fs-sm);
+  color: var(--doc-ink-soft);
   margin-top: 0.5mm;
-  margin-left: 0.4mm;
-  width: 30mm;
-  height: var(--rule-w);
-  background: var(--rule);
 }
 
-.qp-sigline-name {
-  margin-top: 4.25mm;
+/* hero */
+.doc-hero {
+  display: block;
+  background: var(--doc-band);
+  color: var(--doc-accent-ink);
+  border-radius: 3mm;
+  padding: 6mm;
+  margin: -4mm -4mm 5mm;
 }
 
-/* ---- footer ---------------------------------------------------------- */
-/* measured: boxes 1-2 at x 0..715 / 736..1536 px, y 3335..3403 px;
-   box 3 at x 1565..2481 px, y 3296..3403 px; a full-width band runs
-   y 3404..3503 px behind and below them. */
-.qp-footer {
-  position: relative;
-  width: 210mm;
-  height: 14.16mm;
-  margin-top: 5.12mm; /* 281.56 - 276.44: lands it at the measured y for the standard case */
+.doc-hero-body {
+  margin-top: 3mm;
 }
 
-.qp-footer-band {
-  position: absolute;
-  left: 0;
-  top: 5.83mm;
-  width: 100%;
-  height: 8.44mm;
-  background: linear-gradient(180deg, #1b7cbb 0%, #15588f 100%);
+.doc-hero .doc-heading {
+  color: var(--doc-accent-ink);
+  letter-spacing: 3px;
 }
 
-.qp-footer-box {
-  position: absolute;
-  color: #fff;
-  font-family: var(--font-sans);
+.doc-hero-title {
+  font-family: var(--doc-font-title);
+  font-size: 15pt;
   font-weight: 700;
-  font-size: 8pt;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--doc-accent-ink);
+  margin-top: 1.5mm;
+}
+
+.doc-hero-meta {
+  font-size: var(--doc-fs-sm);
+  opacity: 0.9;
+  margin-top: 1.5mm;
+}
+
+/* minimal */
+.doc-minimal {
+  border-bottom: 2px solid var(--doc-rule-strong);
+  padding-bottom: 3mm;
+}
+
+.doc-minimal-meta {
+  text-align: right;
+}
+
+.doc-minimal .doc-number {
+  color: var(--doc-accent);
+}
+
+/* compact */
+.doc-compact-head {
+  border-bottom: 1px solid var(--doc-rule);
+  padding-bottom: 1.5mm;
+  margin-bottom: 2mm;
+}
+
+.doc-compact-title {
+  text-align: right;
+}
+
+.doc-compact-title .doc-heading {
+  font-size: 11pt;
+}
+
+/* letterhead */
+.doc-fullband {
+  background: var(--doc-band);
+  color: var(--doc-accent-ink);
+  padding: 4mm 5mm;
+  margin: -4mm -4mm 4mm;
+  border-radius: 1mm;
+}
+
+.doc-fullband .doc-heading {
+  color: var(--doc-accent-ink);
+  text-align: right;
+}
+
+.doc-onband-muted {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--doc-fs-sm);
+  text-align: right;
+  margin-top: 1mm;
+}
+
+.doc-onband-number {
+  font-family: var(--doc-font-num);
+  font-size: 10.5pt;
+  text-align: right;
+  margin-top: 0.5mm;
+}
+
+/* ---- company mark -------------------------------------------------------- */
+
+.doc-mark img {
+  max-width: 130px;
+  max-height: 46px;
+  display: block;
+  object-fit: contain;
+}
+
+.doc-mark-plate {
+  background: #ffffff;
+  border: 1px solid var(--doc-rule);
+  border-radius: 2mm;
+  padding: 2mm 3mm;
+  display: inline-block;
+}
+
+.doc-mark-bare img {
+  max-width: 150px;
+}
+
+.doc-mark-onband img {
+  max-width: 150px;
+  filter: brightness(0) invert(1);
+}
+
+/* On a coloured band the name has to be light too, or it disappears into the
+   background - the ATS name is dark navy, which is exactly the band colour. */
+.doc-mark-onband .doc-mark-text,
+.doc-hero .doc-mark-text {
+  color: #ffffff;
+}
+
+.doc-mark-text {
+  font-family: var(--doc-font-title);
+  font-size: 14pt;
+  font-weight: 700;
+  color: var(--doc-accent);
+}
+
+/* ---- subject ------------------------------------------------------------- */
+
+.doc-subject-bar {
+  background: var(--doc-accent-soft);
+  border-left: 4px solid var(--doc-accent);
+  padding: 2.5mm 3mm;
+  margin-bottom: 4mm;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doc-subject-plain {
+  font-family: var(--doc-font-title);
+  font-size: 13pt;
+  font-weight: 700;
   text-align: center;
-  line-height: 1.25;
-  border-radius: 1.6mm;
-  padding: 0 3mm;
-  white-space: nowrap;
+  margin: 3mm 0 4mm;
+  letter-spacing: 1px;
+}
+
+/* ---- columns ------------------------------------------------------------- */
+
+.doc-cols {
+  display: flex;
+  gap: 4mm;
+  align-items: flex-start;
+  margin-bottom: 4mm;
+}
+
+.doc-cols > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.doc-cols-tight {
+  margin-top: 4mm;
+}
+
+.doc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+  min-width: 0;
+}
+
+/* ---- panels -------------------------------------------------------------- */
+
+.doc-panel {
+  border: 1px solid var(--doc-rule);
+  border-radius: 1.5mm;
   overflow: hidden;
 }
 
-.qp-footer-a {
-  left: 0;
-  top: 0;
-  width: 60.36mm;
-  height: 5.74mm;
-  background: #2aa6dc;
-  padding-right: 12mm;
-}
-.qp-footer-b {
-  left: 62.14mm;
-  top: 0;
-  width: 67.54mm;
-  height: 5.74mm;
-  background: #2aa6dc;
-  padding-right: 3.6mm;
-}
-.qp-footer-c {
-  left: 132.13mm;
-  top: -3.3mm;
-  width: 77.33mm;
-  height: 9.03mm;
-  background: linear-gradient(180deg, #1e7bb5 0%, #165e90 100%);
-  border-radius: 2.4mm 0 0 2.4mm;
-  flex-direction: column;
-  padding: 0 2mm 0 2mm;
-  padding-right: 13.4mm;
+.doc-panel-head {
+  background: var(--doc-accent-soft);
+  color: var(--doc-panel-ink);
+  font-size: var(--doc-fs-sm);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 1.5mm 2.5mm;
 }
 
-.qp-footer-rule {
+.doc-panel-body {
+  padding: 2.5mm;
+}
+
+.doc-party-name {
+  font-weight: 700;
+  font-size: 10.5pt;
+  margin-bottom: 1mm;
+}
+
+.doc-party-line {
+  margin-top: 0.5mm;
+  white-space: pre-line;
+}
+
+.doc-muted {
+  color: var(--doc-ink-muted);
+  font-size: var(--doc-fs-sm);
+}
+
+.doc-minimal .doc-panel {
+  border: none;
+}
+
+.doc-minimal .doc-panel-head {
+  background: none;
+  padding-left: 0;
+}
+
+/* ---- meta list ----------------------------------------------------------- */
+
+.doc-meta {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doc-meta th,
+.doc-meta td {
+  text-align: left;
+  padding: 1mm 0;
+  vertical-align: top;
+  font-size: var(--doc-fs);
+}
+
+.doc-meta th {
+  color: var(--doc-ink-soft);
+  font-weight: 600;
+  width: 44%;
+  padding-right: 2mm;
+}
+
+.doc-meta td {
+  font-weight: 700;
+}
+
+.doc-meta-inline th,
+.doc-meta-inline td {
+  display: inline-block;
+  width: auto;
+  padding-right: 3mm;
+}
+
+.doc-meta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4mm;
+}
+
+.doc-meta-inline tbody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4mm;
+}
+
+.doc-meta-inline tr {
+  display: flex;
+  gap: 1mm;
+}
+
+/* ---- items --------------------------------------------------------------- */
+
+.doc-items {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.doc-items th {
+  background: var(--doc-accent);
+  color: var(--doc-accent-ink);
+  font-size: var(--doc-fs-sm);
+  font-weight: 700;
+  text-align: center;
+  padding: 2mm 1.5mm;
+  border: 1px solid var(--doc-accent);
+  line-height: 1.15;
+}
+
+.doc-items td {
+  border: 1px solid var(--doc-rule);
+  padding: 1.6mm 2mm;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+/* Header labels sit on two lines, so the row needs room for both without
+   either label overlapping its neighbour. */
+.doc-items thead th {
+  height: auto;
+}
+
+.doc-items .col-sr { width: 7%; }
+.doc-items .col-hsn { width: 11%; }
+.doc-items .col-qty { width: 8%; }
+.doc-items .col-rate { width: 13%; }
+.doc-items .col-amt { width: 16%; }
+.doc-items .col-unit { width: 8%; }
+
+.doc-sr {
+  text-align: left;
+  font-weight: 600;
+}
+
+.doc-particular {
+  white-space: pre-line;
+  text-align: left;
+}
+
+.doc-num {
+  text-align: right;
+  font-family: var(--doc-font-num);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.doc-amt {
+  font-weight: 700;
+}
+
+.doc-empty {
+  text-align: center;
+  color: var(--doc-ink-muted);
+  padding: 4mm 2mm;
+}
+
+.doc-t-minimal .doc-items th {
+  background: none;
+  color: var(--doc-ink);
+  border: none;
+  border-bottom: 2px solid var(--doc-rule-strong);
+}
+
+.doc-t-minimal .doc-items td {
+  border: none;
+  border-bottom: 1px solid var(--doc-rule);
+}
+
+/* ---- totals -------------------------------------------------------------- */
+
+.doc-totals {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doc-totals td {
+  padding: 1.5mm 2mm;
+  vertical-align: top;
+}
+
+.doc-tot-label {
+  color: var(--doc-ink-soft);
+  font-weight: 600;
+}
+
+.doc-tot-value {
+  text-align: right;
+  font-family: var(--doc-font-num);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.doc-grand td {
+  background: var(--doc-total-fill);
+  color: var(--doc-accent-ink);
+  font-weight: 700;
+  font-size: 11pt;
+  padding: 2.5mm;
+}
+
+.doc-grand .doc-tot-label {
+  color: var(--doc-accent-ink);
+}
+
+.doc-grand .doc-tot-value {
+  color: var(--doc-accent-ink);
+}
+
+/* minimal states the total with rules rather than a filled bar */
+.doc-t-minimal .doc-grand td {
+  background: none;
+  color: var(--doc-ink);
+  border-top: 2px solid var(--doc-rule-strong);
+  border-bottom: 2px solid var(--doc-rule-strong);
+}
+
+/* ---- company / bank ------------------------------------------------------ */
+
+.doc-company-name {
+  font-weight: 700;
+  margin-bottom: 1mm;
+}
+
+.doc-company-line {
+  white-space: pre-line;
+  margin-bottom: 1.5mm;
+}
+
+.doc-company-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doc-company-table th,
+.doc-company-table td {
+  text-align: left;
+  padding: 0.6mm 0;
+  vertical-align: top;
+  font-size: var(--doc-fs-sm);
+}
+
+.doc-company-table th {
+  color: var(--doc-ink-soft);
+  font-weight: 600;
+  width: 34%;
+  padding-right: 2mm;
+}
+
+.doc-minimal .doc-panel {
+  border: none;
+}
+
+.doc-minimal .doc-company-table th {
+  border: none;
+}
+
+/* ---- UPI ----------------------------------------------------------------- */
+
+.doc-upi {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  border: 1px solid var(--doc-rule);
+  border-radius: 1.5mm;
+  padding: 2.5mm;
+}
+
+.doc-upi img {
+  width: 58px;
+  height: 58px;
+}
+
+.doc-upi-id {
+  font-family: var(--doc-font-num);
+  font-weight: 700;
+  font-size: var(--doc-fs-sm);
+}
+
+/* ---- words / notes ------------------------------------------------------- */
+
+.doc-words {
+  background: #f7fafc;
+  border-left: 3px solid var(--doc-accent);
+  padding: 2mm 3mm;
+  font-size: var(--doc-fs-sm);
+}
+
+.doc-notes {
+  margin-top: 4mm;
+}
+
+.doc-notes-body {
+  white-space: pre-line;
+  font-size: var(--doc-fs-sm);
+}
+
+/* ---- signature ----------------------------------------------------------- */
+
+/* Two columns sized by content, never a fixed narrow column - the old
+   `nowrap` caption overflowed a 21mm cell and printed over its neighbour. */
+.doc-sign {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4mm;
+}
+
+.doc-sign td {
+  vertical-align: bottom;
+  padding: 0;
+}
+
+.doc-sign-lines {
+  width: 55%;
+  padding: 3mm 4mm 0 0 !important;
+}
+
+.doc-sign-for {
+  font-weight: 700;
+  font-size: var(--doc-fs);
+  margin-bottom: 6mm;
+}
+
+.doc-sign-cap {
+  font-size: var(--doc-fs-sm);
+  color: var(--doc-ink-soft);
+  margin-bottom: 1mm;
+}
+
+.doc-sign-rule {
+  width: 70mm;
+  max-width: 100%;
+  height: 1px;
+  background: var(--doc-ink);
+  margin-bottom: 5mm;
+}
+
+.doc-sign-box {
+  width: 45%;
+  border: 1px solid var(--doc-rule);
+  border-radius: 1.5mm;
+  text-align: center;
+  padding: 2.5mm !important;
+}
+
+.doc-sign-box .doc-sign-for {
+  margin-bottom: 0;
+}
+
+.doc-stamp {
+  display: block;
+  width: 100px;
+  height: 64px;
+  object-fit: contain;
+  margin: 2mm auto 1mm;
+}
+
+/* Reserves the slot so the layout does not jump when a stamp is added. */
+.doc-stamp-gap {
+  height: 26mm;
+}
+
+.doc-sign-role {
+  font-size: var(--doc-fs-sm);
+  color: var(--doc-ink-soft);
+}
+
+.doc-maroon {
+  color: #5f1f1f;
+}
+
+/* ---- footer -------------------------------------------------------------- */
+
+.doc-footer {
+  position: relative;
+  margin-top: 6mm;
+  height: 16mm;
+  color: #ffffff;
+}
+
+.doc-footer-band {
   position: absolute;
   left: 0;
+  top: 0;
+  right: 0;
   bottom: 0;
-  width: 100%;
-  height: 0.25mm;
-  background: #3f9bda;
+  background: var(--doc-band);
+}
+
+.doc-footer-box {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  width: 32%;
+  height: 16mm;
+  padding: 3mm 3mm 0;
+  font-size: 8pt;
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+.doc-footer-wide {
+  width: 36%;
+  text-align: right;
+}
+
+.doc-footer-addr {
+  font-weight: 400;
+  font-size: 7pt;
+  opacity: 0.9;
+}
+
+/* ---- preview -------------------------------------------------------------
+   The same sheet, scaled down in a fixed-height frame. Scaling rather than a
+   second stylesheet is what guarantees the preview and the printed page cannot
+   differ - there is only one set of rules. */
+
+.theme-preview-frame {
+  border: 1px solid var(--doc-rule);
+  border-radius: 4px;
+  background: #eef1f5;
+  height: 520px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+.theme-preview-scale {
+  width: 210mm;
+  transform: scale(0.6);
+  transform-origin: top center;
+  pointer-events: none;
+}
+
+.theme-preview-scale .doc-sheet {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.theme-preview-missing {
+  margin: auto;
+  color: var(--doc-ink-muted);
+  font-size: 0.85rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.theme-preview-note {
+  color: var(--doc-ink-muted);
+  font-size: 0.72rem;
+  margin-top: 0.35rem;
+}
+
+@media print {
+  .theme-preview {
+    display: none !important;
+  }
 }
 
 /* ==========================================================================
-   print rules
+   print
    ========================================================================== */
 @page {
   size: A4;
@@ -657,63 +823,49 @@
 @media print {
   html,
   body,
-  #root,
-  .app,
-  .app-grid,
-  .app-preview {
+  #root {
     margin: 0;
     padding: 0;
     background: #fff;
     height: auto;
-    display: block;
-    max-height: none;
     overflow: visible;
-    position: static;
-    top: auto;
-    min-width: 0;
   }
 
-  .app-form,
-  .preview-caption {
+  .qp-print-page .no-print,
+  .qp-print-page .preview-caption {
     display: none !important;
   }
 
-  .qp-sheet-wrap {
+  .doc-sheet-wrap {
     background: none;
     padding: 0;
     display: block;
   }
 
-  .qp-sheet {
+  .doc-sheet {
     margin: 0;
-    box-shadow: none;
-    /* allow the sheet to paginate when content exceeds one page */
+    width: auto;
+    min-height: 0;
   }
 
-  /* Atomic blocks: these must never straddle a page boundary, or the signature
-     box and footer get split from the totals they belong to. Only the items
-     section is allowed to break - its rows carry break-inside: avoid and its
-     <thead> repeats, so a long quotation continues with the column headings. */
-  .qp-sec-info,
-  .qp-sec-totals,
-  .qp-sec-sig,
-  .qp-footer {
+  /* The items table may break across pages and repeats its headings; every
+     other block stays whole so a signature never separates from its totals. */
+  .doc-items thead {
+    display: table-header-group;
+  }
+
+  .doc-items tr,
+  .doc-sign,
+  .doc-cols,
+  .doc-panel,
+  .doc-upi,
+  .doc-words,
+  .doc-footer {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  /* The banner, watermark and title are absolutely positioned against
-     .qp-sheet, so they would appear on page 1 only. Switching them to `fixed`
-     makes Chrome repeat them on every printed page, giving a continuation page
-     the same letterhead as the first. */
-  .qp-banner,
-  .qp-banner-art,
-  .qp-watermark,
-  .qp-title-area {
-    position: fixed;
-  }
-
-  .qp-sheet * {
+  .doc-sheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
